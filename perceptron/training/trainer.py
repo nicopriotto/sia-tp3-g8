@@ -1,0 +1,63 @@
+"""Training loop."""
+from __future__ import annotations
+
+import time
+import numpy as np
+
+from .history import TrainingHistory
+from ..config import ExperimentConfig
+from ..metrics import accuracy
+from ..models.base import BasePerceptron
+
+
+class Trainer:
+    def __init__(self, model: BasePerceptron, config: ExperimentConfig):
+        self.model = model
+        self.config = config
+        self.history = TrainingHistory()
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+        stop_on_perfect: bool = True,
+    ) -> TrainingHistory:
+        rng = np.random.default_rng(self.config.seed)
+        start = time.time()
+        n_epochs = self.config.epochs
+
+        for epoch in range(1, n_epochs + 1):
+            loss = self.model.train_epoch(X, y, self.config.learning_rate, rng)
+
+            train_acc = accuracy(y, self.model.predict(X))
+            elapsed = round(time.time() - start, 3)
+
+            record = {
+                "epoch": epoch,
+                "loss": loss,
+                "accuracy": train_acc,
+                "elapsed_sec": elapsed,
+            }
+            if X_val is not None and y_val is not None:
+                record["val_accuracy"] = accuracy(y_val, self.model.predict(X_val))
+
+            self.history.record(**record)
+
+            log_every = max(1, self.config.log_every)
+            if epoch == 1 or epoch % log_every == 0 or epoch == n_epochs:
+                msg = (
+                    f"epoca {epoch:4d}/{n_epochs} | "
+                    f"loss={loss:.4f} | acc={train_acc:.4f} | "
+                    f"elapsed={elapsed:.2f}s"
+                )
+                if "val_accuracy" in record:
+                    msg += f" | val_acc={record['val_accuracy']:.4f}"
+                print(msg)
+
+            if stop_on_perfect and train_acc == 1.0 and loss == 0.0:
+                print(f"Convergio en la epoca {epoch}")
+                break
+
+        return self.history
