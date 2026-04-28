@@ -1,0 +1,11 @@
+{
+  "description": "AND logic gate - canonical truth table",
+  "features": ["x1", "x2"],
+  "X": [
+    [-1,  1],
+    [ 1, -1],
+    [-1, -1],
+    [ 1,  1]
+  ],
+  "y": [-1, -1, -1, 1]
+}

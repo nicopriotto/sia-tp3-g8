@@ -1,0 +1,11 @@
+{
+  "name": "and_step_perceptron",
+  "model_type": "step",
+  "activation": "step",
+  "learning_rate": 0.1,
+  "epochs": 100,
+  "seed": 42,
+  "log_every": 1,
+  "train_data": "experiments/validation/data/and_train.json",
+  "test_data": "experiments/validation/data/and_test.json"
+}
