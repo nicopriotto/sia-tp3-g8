@@ -23,6 +23,7 @@ class Trainer:
         X_val: np.ndarray | None = None,
         y_val: np.ndarray | None = None,
         stop_on_perfect: bool = True,
+        loss_threshold: float | None = None,
     ) -> TrainingHistory:
         rng = np.random.default_rng(self.config.seed)
         start = time.time()
@@ -58,6 +59,9 @@ class Trainer:
 
             if stop_on_perfect and train_acc == 1.0 and loss == 0.0:
                 print(f"Convergio en la epoca {epoch}")
+                break
+            if loss_threshold is not None and loss <= loss_threshold:
+                print(f"Convergio en la epoca {epoch} (loss={loss:.6e} <= {loss_threshold})")
                 break
 
         return self.history

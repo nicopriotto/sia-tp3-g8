@@ -1,0 +1,11 @@
+{
+  "name": "linear_clean",
+  "model_type": "linear",
+  "activation": "identity",
+  "learning_rate": 0.05,
+  "epochs": 500,
+  "seed": 42,
+  "log_every": 50,
+  "train_data": "experiments/validation/data/linear_train_clean.json",
+  "test_data": "experiments/validation/data/linear_test.json"
+}
