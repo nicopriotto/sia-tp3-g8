@@ -19,6 +19,7 @@ class MLPPerceptron(BasePerceptron):
         output_activation: Activation | None = None,
         seed: int | None = None,
         weight_range: tuple[float, float] = (-0.5, 0.5),
+        batch_size: int | None = None,
     ):
         if not architecture:
             raise ValueError("architecture must not be empty")
@@ -34,6 +35,7 @@ class MLPPerceptron(BasePerceptron):
         self.layer_sizes = layer_sizes
         self.activation_hidden = activation
         self.activation_output = output_activation if output_activation is not None else activation
+        self.batch_size = batch_size
 
         rng = np.random.default_rng(seed)
         lo, hi = weight_range
@@ -89,27 +91,39 @@ class MLPPerceptron(BasePerceptron):
 
         order = rng.permutation(len(X))
         squared_error_sum = 0.0
+        batch_size = 1 if self.batch_size is None else int(self.batch_size)
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive or None.")
+        batch_size = min(batch_size, len(X))
 
-        for i in order:
-            xi = X[i]
-            yi = y[i].reshape(1, -1)
+        for start in range(0, len(X), batch_size):
+            batch_idx = order[start:start + batch_size]
+            batch_grads = [np.zeros_like(w) for w in self.weights]
 
-            nets, activations = self._forward_single(xi)
-            output = activations[-1]
-            error = yi - output
-            squared_error_sum += float(np.mean(error * error))
+            for i in batch_idx:
+                xi = X[i]
+                yi = y[i].reshape(1, -1)
 
-            deltas: list[np.ndarray] = [np.empty((1, 0)) for _ in self.weights]
-            deltas[-1] = error * self.activation_output.derivative(nets[-1])
+                nets, activations = self._forward_single(xi)
+                output = activations[-1]
+                error = yi - output
+                squared_error_sum += float(np.mean(error * error))
 
-            for layer in range(len(self.weights) - 2, -1, -1):
-                w_next_no_bias = self.weights[layer + 1][1:, :]
-                backprop_error = deltas[layer + 1] @ w_next_no_bias.T
-                deltas[layer] = backprop_error * self.activation_hidden.derivative(nets[layer])
+                deltas: list[np.ndarray] = [np.empty((1, 0)) for _ in self.weights]
+                deltas[-1] = error * self.activation_output.derivative(nets[-1])
 
+                for layer in range(len(self.weights) - 2, -1, -1):
+                    w_next_no_bias = self.weights[layer + 1][1:, :]
+                    backprop_error = deltas[layer + 1] @ w_next_no_bias.T
+                    deltas[layer] = backprop_error * self.activation_hidden.derivative(nets[layer])
+
+                for layer in range(len(self.weights)):
+                    a_prev_aug = self._add_bias(activations[layer])
+                    batch_grads[layer] += a_prev_aug.T @ deltas[layer]
+
+            step = lr / len(batch_idx)
             for layer in range(len(self.weights)):
-                a_prev_aug = self._add_bias(activations[layer])
-                self.weights[layer] += lr * (a_prev_aug.T @ deltas[layer])
+                self.weights[layer] += step * batch_grads[layer]
 
         return float(squared_error_sum / len(X))
 

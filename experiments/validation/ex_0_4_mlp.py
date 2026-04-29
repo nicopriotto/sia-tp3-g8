@@ -15,7 +15,7 @@ import numpy as np
 from perceptron.activations import get_activation
 from perceptron.config import ExperimentConfig
 from perceptron.data import load_dataset
-from perceptron.metrics import accuracy, mse
+from perceptron.metrics import accuracy, binary_f1, binary_precision, binary_recall
 from perceptron.models.mlp import MLPPerceptron
 from perceptron.persistence import save_model
 from perceptron.training.trainer import Trainer
@@ -33,6 +33,23 @@ def parse_args() -> argparse.Namespace:
 
 def to_bipolar_labels(y_raw: np.ndarray) -> np.ndarray:
     return np.where(np.asarray(y_raw, dtype=float) >= 0.0, 1.0, -1.0)
+
+
+def validate_split(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray | None,
+    y_test: np.ndarray | None,
+) -> None:
+    if X_test is None or y_test is None:
+        return
+
+    same_x = X_train.shape == X_test.shape and np.array_equal(X_train, X_test)
+    same_y = y_train.shape == y_test.shape and np.array_equal(y_train, y_test)
+    if same_x and same_y:
+        raise ValueError(
+            "Train y test son identicos. Para evaluar generalizacion, use un split real o validacion cruzada."
+        )
 
 
 def plot_decision_boundary(
@@ -102,7 +119,7 @@ def plot_decision_boundary(
 def plot_training_curve(records: list[dict], output_path: Path) -> None:
     epochs = [r["epoch"] for r in records]
     losses = [r["loss"] for r in records]
-    accs = [r["accuracy"] for r in records]
+    accs = [float("nan") if r["accuracy"] is None else r["accuracy"] for r in records]
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     axes[0].plot(epochs, losses, "-o", markersize=2)
@@ -114,7 +131,7 @@ def plot_training_curve(records: list[dict], output_path: Path) -> None:
 
     axes[1].plot(epochs, accs, "-o", markersize=2, color="green")
     axes[1].set_xlabel("epoca")
-    axes[1].set_ylabel("accuracy exacta (raw==target)")
+    axes[1].set_ylabel("accuracy (clases por signo)")
     axes[1].set_title("Accuracy")
     axes[1].set_ylim(-0.05, 1.05)
     axes[1].grid(alpha=0.3)
@@ -124,15 +141,25 @@ def plot_training_curve(records: list[dict], output_path: Path) -> None:
     plt.close(fig)
 
 
-def report_predictions(label: str, X: np.ndarray, y: np.ndarray, y_raw: np.ndarray) -> tuple[float, float]:
+def report_predictions(label: str, X: np.ndarray, y: np.ndarray, y_raw: np.ndarray) -> dict[str, float]:
     y_bin = to_bipolar_labels(y_raw)
     acc = accuracy(y, y_bin)
-    err = mse(y, y_raw)
-    print(f"\n[{label}] acc={acc:.4f}  mse={err:.6e}  ({len(X)} muestras)")
+    precision = binary_precision(y, y_bin, positive_label=1.0)
+    recall = binary_recall(y, y_bin, positive_label=1.0)
+    f1 = binary_f1(y, y_bin, positive_label=1.0)
+    print(
+        f"\n[{label}] acc={acc:.4f}  precision={precision:.4f}  "
+        f"recall={recall:.4f}  f1={f1:.4f}  ({len(X)} muestras)"
+    )
     for x, yt, raw, yp in zip(X, y.astype(int), y_raw, y_bin.astype(int)):
         marker = "[OK]" if yt == yp else "[WRONG]"
         print(f"  x={x.tolist()}  esperado={yt:+d}  raw={float(raw):+.5f}  pred={yp:+d}  {marker}")
-    return acc, err
+    return {
+        "accuracy": float(acc),
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+    }
 
 
 def main() -> None:
@@ -145,6 +172,7 @@ def main() -> None:
 
     X_train, y_train = load_dataset(config.train_data)
     X_test, y_test = load_dataset(config.test_data) if config.test_data else (None, None)
+    validate_split(X_train, y_train, X_test, y_test)
 
     results_dir = Path(f"results/validation/{config.name}")
     print(f"=== Experimento: {config.name} ===")
@@ -160,7 +188,14 @@ def main() -> None:
         activation=activation,
         output_activation=activation,
         seed=config.seed,
+        batch_size=config.batch_size,
     )
+    mode = (
+        "online"
+        if config.batch_size in (None, 1)
+        else ("batch" if config.batch_size >= len(X_train) else f"mini-batch ({config.batch_size})")
+    )
+    print(f"Modo de entrenamiento: {mode}")
     print("Pesos iniciales por capa:")
     for i, w in enumerate(model.weights):
         print(f"  W{i} shape={w.shape}")
@@ -174,13 +209,12 @@ def main() -> None:
         print(f"  W{i} shape={w.shape}")
 
     train_raw = model.predict(X_train)
-    train_acc, train_mse = report_predictions("TRAIN", X_train, y_train, train_raw)
+    train_metrics = report_predictions("TRAIN", X_train, y_train, train_raw)
 
-    test_acc = None
-    test_mse = None
+    test_metrics = None
     if X_test is not None:
         test_raw = model.predict(X_test)
-        test_acc, test_mse = report_predictions("TEST", X_test, y_test, test_raw)
+        test_metrics = report_predictions("TEST", X_test, y_test, test_raw)
 
     save_model(model, config, results_dir)
     history.to_json(results_dir / "history.json")
@@ -188,12 +222,8 @@ def main() -> None:
     plot_training_curve(history.records, results_dir / "training_curve.png")
 
     eval_summary = {
-        "train": {"accuracy": train_acc, "mse": train_mse, "n_samples": int(len(X_train))},
-        "test": (
-            {"accuracy": test_acc, "mse": test_mse, "n_samples": int(len(X_test))}
-            if X_test is not None
-            else None
-        ),
+        "train": {**train_metrics, "n_samples": int(len(X_train))},
+        "test": ({**test_metrics, "n_samples": int(len(X_test))} if test_metrics is not None else None),
         "architecture": config.architecture,
     }
     with open(results_dir / "evaluation.json", "w") as f:

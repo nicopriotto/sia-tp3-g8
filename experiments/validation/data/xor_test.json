@@ -1,31 +1,26 @@
 {
-  "description": "XOR logico con codificacion bipolar {-1, +1} (test)",
+  "description": "XOR logico con entradas binarias {0, 1} y salida bipolar {-1, +1} (test)",
   "features": [
     "x1",
     "x2"
   ],
   "X": [
-    [
-      -1,
-      1
-    ],
-    [
-      1,
-      -1
-    ],
-    [
-      -1,
-      -1
-    ],
-    [
-      1,
-      1
-    ]
+    [0, 1],
+    [1, 0],
+    [0, 0],
+    [1, 1],
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [0, 0],
+    [1, 1]
   ],
   "y": [
-    1,
-    1,
-    -1,
-    -1
+    1, 1, -1, -1,
+    1, 1, -1, -1,
+    1, 1, -1, -1
   ]
 }
