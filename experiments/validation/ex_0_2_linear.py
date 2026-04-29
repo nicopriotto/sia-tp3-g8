@@ -13,7 +13,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from perceptron.activations import Identity
+from perceptron.activations import Identity, get_activation
 from perceptron.config import ExperimentConfig
 from perceptron.data import load_dataset
 from perceptron.metrics import mse
@@ -95,7 +95,13 @@ def main() -> None:
         print(f"Test : {len(X_test)} muestras  ({config.test_data})")
     print()
 
-    model = SimplePerceptron(n_features=X_train.shape[1], activation=Identity(), seed=config.seed)
+    activation = get_activation(config.activation, **config.activation_params)
+    if not isinstance(activation, Identity):
+        raise ValueError(
+            f"Config invalida para experimento lineal: activation='{config.activation}' (esperada: 'identity')."
+        )
+
+    model = SimplePerceptron(n_features=X_train.shape[1], activation=activation, seed=config.seed)
     print(f"Pesos iniciales (w0=bias, w1): {model.w}")
     print()
 

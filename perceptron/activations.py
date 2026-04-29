@@ -18,8 +18,23 @@ class Activation(ABC):
 class Step(Activation):
     name = "step"
 
+    def __init__(
+        self,
+        positive_output: float = 1.0,
+        negative_output: float = -1.0,
+        strict_threshold: bool = False,
+    ):
+        if positive_output == negative_output:
+            raise ValueError("Step outputs must be different values.")
+        self.positive_output = float(positive_output)
+        self.negative_output = float(negative_output)
+        self.strict_threshold = strict_threshold
+
     def forward(self, x):
-        return np.where(np.asarray(x) >= 0, 1.0, -1.0)
+        x_arr = np.asarray(x, dtype=float)
+        if self.strict_threshold:
+            return np.where(x_arr > 0.0, self.positive_output, self.negative_output)
+        return np.where(x_arr >= 0.0, self.positive_output, self.negative_output)
 
     def derivative(self, x):
         raise NotImplementedError("Step has no derivative.")

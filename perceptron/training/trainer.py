@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from typing import Optional
 import numpy as np
 
 from .history import TrainingHistory
@@ -48,16 +49,19 @@ class Trainer:
 
             log_every = max(1, self.config.log_every)
             if epoch == 1 or epoch % log_every == 0 or epoch == n_epochs:
+                acc_txt = f"{train_acc:.4f}" if train_acc is not None else "n/a"
                 msg = (
                     f"epoca {epoch:4d}/{n_epochs} | "
-                    f"loss={loss:.4f} | acc={train_acc:.4f} | "
+                    f"loss={loss:.4f} | acc={acc_txt} | "
                     f"elapsed={elapsed:.2f}s"
                 )
                 if "val_accuracy" in record:
-                    msg += f" | val_acc={record['val_accuracy']:.4f}"
+                    val_acc = record["val_accuracy"]
+                    val_txt = f"{val_acc:.4f}" if val_acc is not None else "n/a"
+                    msg += f" | val_acc={val_txt}"
                 print(msg)
 
-            if stop_on_perfect and train_acc == 1.0 and loss == 0.0:
+            if stop_on_perfect and train_acc is not None and train_acc == 1.0 and loss == 0.0:
                 print(f"Convergio en la epoca {epoch}")
                 break
             if loss_threshold is not None and loss <= loss_threshold:
@@ -67,12 +71,12 @@ class Trainer:
         return self.history
 
     @staticmethod
-    def _safe_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    def _safe_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> Optional[float]:
         y_true_arr = np.asarray(y_true, dtype=float)
         y_pred_arr = np.asarray(y_pred, dtype=float)
 
         if y_true_arr.shape != y_pred_arr.shape:
-            return accuracy(y_true_arr, y_pred_arr)
+            return None
 
         unique_true = set(np.unique(y_true_arr).tolist())
         if unique_true.issubset({-1.0, 1.0}):
@@ -83,4 +87,4 @@ class Trainer:
             y_pred_disc = np.where(y_pred_arr >= 0.5, 1.0, 0.0)
             return accuracy(y_true_arr, y_pred_disc)
 
-        return accuracy(y_true_arr, y_pred_arr)
+        return None

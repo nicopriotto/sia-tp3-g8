@@ -2,6 +2,11 @@
   "name": "and_step_perceptron",
   "model_type": "step",
   "activation": "step",
+  "activation_params": {
+    "positive_output": 1.0,
+    "negative_output": -1.0,
+    "strict_threshold": false
+  },
   "learning_rate": 0.1,
   "epochs": 100,
   "seed": 42,

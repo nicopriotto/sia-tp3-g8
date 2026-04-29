@@ -9,7 +9,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
-from perceptron.activations import Step
+from perceptron.activations import Step, get_activation
 from perceptron.config import ExperimentConfig
 from perceptron.data import load_dataset
 from perceptron.metrics import accuracy
@@ -117,7 +117,13 @@ def main() -> None:
         print(f"Test : {len(X_test)} muestras  ({config.test_data})")
     print()
 
-    model = SimplePerceptron(n_features=X_train.shape[1], activation=Step(), seed=config.seed)
+    activation = get_activation(config.activation, **config.activation_params)
+    if not isinstance(activation, Step):
+        raise ValueError(
+            f"Config invalida para experimento AND: activation='{config.activation}' (esperada: 'step')."
+        )
+
+    model = SimplePerceptron(n_features=X_train.shape[1], activation=activation, seed=config.seed)
     print(f"Pesos iniciales (w0=bias, w1, w2): {model.w}")
     print()
 

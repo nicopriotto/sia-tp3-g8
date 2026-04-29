@@ -13,7 +13,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from perceptron.activations import Tanh
+from perceptron.activations import Tanh, get_activation
 from perceptron.config import ExperimentConfig
 from perceptron.data import load_dataset
 from perceptron.metrics import mse
@@ -96,7 +96,11 @@ def main() -> None:
         print(f"Test : {len(X_test)} muestras  ({config.test_data})")
     print()
 
-    activation = Tanh(**config.activation_params)
+    activation = get_activation(config.activation, **config.activation_params)
+    if not isinstance(activation, Tanh):
+        raise ValueError(
+            f"Config invalida para experimento no lineal: activation='{config.activation}' (esperada: 'tanh')."
+        )
     model = SimplePerceptron(n_features=X_train.shape[1], activation=activation, seed=config.seed)
     print(f"Pesos iniciales (w0=bias, w1): {model.w}")
     print()
