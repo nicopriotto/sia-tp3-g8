@@ -70,11 +70,41 @@ class Sigmoid(Activation):
         self.beta = beta
 
     def forward(self, x):
-        return 1.0 / (1.0 + np.exp(-self.beta * np.asarray(x, dtype=float)))
+        z = np.clip(self.beta * np.asarray(x, dtype=float), -500.0, 500.0)
+        return 1.0 / (1.0 + np.exp(-z))
 
     def derivative(self, x):
         s = self.forward(x)
         return self.beta * s * (1.0 - s)
+
+
+class ReLU(Activation):
+    name = "relu"
+
+    def forward(self, x):
+        return np.maximum(0.0, np.asarray(x, dtype=float))
+
+    def derivative(self, x):
+        return (np.asarray(x, dtype=float) > 0.0).astype(float)
+
+
+class Softmax(Activation):
+    name = "softmax"
+
+    def forward(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        if x_arr.ndim == 1:
+            shifted = x_arr - np.max(x_arr)
+            exp = np.exp(shifted)
+            return exp / np.sum(exp)
+
+        shifted = x_arr - np.max(x_arr, axis=1, keepdims=True)
+        exp = np.exp(shifted)
+        return exp / np.sum(exp, axis=1, keepdims=True)
+
+    def derivative(self, x):
+        s = self.forward(x)
+        return s * (1.0 - s)
 
 
 _REGISTRY: dict[str, type[Activation]] = {
@@ -82,6 +112,8 @@ _REGISTRY: dict[str, type[Activation]] = {
     "identity": Identity,
     "tanh": Tanh,
     "sigmoid": Sigmoid,
+    "relu": ReLU,
+    "softmax": Softmax,
 }
 
 

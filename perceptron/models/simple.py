@@ -8,6 +8,7 @@ import numpy as np
 
 from .base import BasePerceptron
 from ..activations import Activation, Step
+from ..training.optimizers import Optimizer
 
 
 class SimplePerceptron(BasePerceptron):
@@ -17,12 +18,14 @@ class SimplePerceptron(BasePerceptron):
         activation: Activation,
         seed: int | None = None,
         weight_range: tuple[float, float] = (-0.5, 0.5),
+        loss: str = "mse",
     ):
         rng = np.random.default_rng(seed)
         lo, hi = weight_range
         self.w = rng.uniform(lo, hi, size=n_features + 1)
         self.activation = activation
         self._is_step = isinstance(activation, Step)
+        self.loss = loss
 
     @staticmethod
     def _add_bias(X: np.ndarray) -> np.ndarray:
@@ -39,12 +42,17 @@ class SimplePerceptron(BasePerceptron):
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.forward(X)
 
-    def train_epoch(self, X, y, lr, rng):
+    @staticmethod
+    def _binary_cross_entropy(y_true: float, y_pred: float) -> float:
+        pred = float(np.clip(y_pred, 1e-12, 1.0 - 1e-12))
+        return float(-(y_true * np.log(pred) + (1.0 - y_true) * np.log(1.0 - pred)))
+
+    def train_epoch(self, X, y, lr, rng, optimizer: Optimizer | None = None):
         X = np.asarray(X, dtype=float)
         y = np.asarray(y, dtype=float)
         order = rng.permutation(len(X))
 
-        squared_error_sum = 0.0
+        loss_sum = 0.0
         for i in order:
             xi_aug = np.concatenate(([1.0], X[i]))
             net_i = float(xi_aug @ self.w)
@@ -52,15 +60,24 @@ class SimplePerceptron(BasePerceptron):
             error = y[i] - o
 
             if self._is_step:
-                delta_w = lr * error * xi_aug
+                direction = error * xi_aug
+                loss_sum += error * error
+            elif self.loss == "binary_cross_entropy":
+                grad_act = float(self.activation.derivative(np.array([net_i]))[0])
+                denom = max(o * (1.0 - o), 1e-12)
+                direction = error * grad_act * xi_aug / denom
+                loss_sum += self._binary_cross_entropy(float(y[i]), o)
             else:
                 grad_act = float(self.activation.derivative(np.array([net_i]))[0])
-                delta_w = lr * error * grad_act * xi_aug
+                direction = error * grad_act * xi_aug
+                loss_sum += error * error
 
-            self.w += delta_w
-            squared_error_sum += error * error
+            if optimizer is None:
+                self.w += lr * direction
+            else:
+                optimizer.step("w", self.w, direction, lr)
 
-        return float(squared_error_sum / len(X))
+        return float(loss_sum / len(X))
 
     def get_weights(self) -> dict[str, np.ndarray]:
         return {"w": self.w}

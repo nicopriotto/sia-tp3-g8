@@ -17,6 +17,7 @@ class BasePerceptron(ABC):
         y: np.ndarray,
         lr: float,
         rng: np.random.Generator,
+        optimizer: object | None = None,
     ) -> float:
         """One pass over the data. Returns epoch loss."""
         ...
