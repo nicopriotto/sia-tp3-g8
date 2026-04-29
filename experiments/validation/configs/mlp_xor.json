@@ -1,0 +1,19 @@
+{
+  "name": "mlp_xor",
+  "model_type": "mlp",
+  "activation": "tanh",
+  "activation_params": {
+    "beta": 1.0
+  },
+  "architecture": [
+    2,
+    4,
+    1
+  ],
+  "learning_rate": 0.1,
+  "epochs": 5000,
+  "seed": 42,
+  "log_every": 100,
+  "train_data": "experiments/validation/data/xor_train.json",
+  "test_data": "experiments/validation/data/xor_test.json"
+}

@@ -32,7 +32,7 @@ class Trainer:
         for epoch in range(1, n_epochs + 1):
             loss = self.model.train_epoch(X, y, self.config.learning_rate, rng)
 
-            train_acc = accuracy(y, self.model.predict(X))
+            train_acc = self._safe_accuracy(y, self.model.predict(X))
             elapsed = round(time.time() - start, 3)
 
             record = {
@@ -42,7 +42,7 @@ class Trainer:
                 "elapsed_sec": elapsed,
             }
             if X_val is not None and y_val is not None:
-                record["val_accuracy"] = accuracy(y_val, self.model.predict(X_val))
+                record["val_accuracy"] = self._safe_accuracy(y_val, self.model.predict(X_val))
 
             self.history.record(**record)
 
@@ -65,3 +65,22 @@ class Trainer:
                 break
 
         return self.history
+
+    @staticmethod
+    def _safe_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        y_true_arr = np.asarray(y_true, dtype=float)
+        y_pred_arr = np.asarray(y_pred, dtype=float)
+
+        if y_true_arr.shape != y_pred_arr.shape:
+            return accuracy(y_true_arr, y_pred_arr)
+
+        unique_true = set(np.unique(y_true_arr).tolist())
+        if unique_true.issubset({-1.0, 1.0}):
+            y_pred_disc = np.where(y_pred_arr >= 0.0, 1.0, -1.0)
+            return accuracy(y_true_arr, y_pred_disc)
+
+        if unique_true.issubset({0.0, 1.0}):
+            y_pred_disc = np.where(y_pred_arr >= 0.5, 1.0, 0.0)
+            return accuracy(y_true_arr, y_pred_disc)
+
+        return accuracy(y_true_arr, y_pred_arr)

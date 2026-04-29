@@ -1,0 +1,31 @@
+{
+  "description": "XOR logico con codificacion bipolar {-1, +1} (test)",
+  "features": [
+    "x1",
+    "x2"
+  ],
+  "X": [
+    [
+      -1,
+      1
+    ],
+    [
+      1,
+      -1
+    ],
+    [
+      -1,
+      -1
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "y": [
+    1,
+    1,
+    -1,
+    -1
+  ]
+}
