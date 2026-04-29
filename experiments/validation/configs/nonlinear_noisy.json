@@ -1,0 +1,14 @@
+{
+  "name": "nonlinear_noisy",
+  "model_type": "nonlinear",
+  "activation": "tanh",
+  "activation_params": {
+    "beta": 1.0
+  },
+  "learning_rate": 0.05,
+  "epochs": 1000,
+  "seed": 42,
+  "log_every": 50,
+  "train_data": "experiments/validation/data/nonlinear_train_noisy.json",
+  "test_data": "experiments/validation/data/nonlinear_test.json"
+}
