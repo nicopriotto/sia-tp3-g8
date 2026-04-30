@@ -1,6 +1,7 @@
 """Training loop."""
 from __future__ import annotations
 
+import copy
 import time
 from typing import Optional
 import numpy as np
@@ -29,6 +30,7 @@ class Trainer:
         y_val: np.ndarray | None = None,
         stop_on_perfect: bool = True,
         loss_threshold: float | None = None,
+        restore_best_weights: bool = False,
     ) -> TrainingHistory:
         rng = np.random.default_rng(self.config.seed)
         start = time.time()
@@ -36,6 +38,7 @@ class Trainer:
         task_type = self._resolve_task_type(y)
         best_monitor = float("inf")
         stale_epochs = 0
+        best_weights = None
 
         for epoch in range(1, n_epochs + 1):
             loss = self.model.train_epoch(X, y, self.config.learning_rate, rng, optimizer=self.optimizer)
@@ -93,11 +96,16 @@ class Trainer:
                 if monitor < best_monitor - self.config.min_delta:
                     best_monitor = monitor
                     stale_epochs = 0
+                    if restore_best_weights:
+                        best_weights = copy.deepcopy(self.model.get_weights())
                 else:
                     stale_epochs += 1
                     if stale_epochs >= self.config.patience:
                         print(f"Early stopping en la epoca {epoch}")
                         break
+
+        if restore_best_weights and best_weights is not None:
+            self.model.set_weights(best_weights)
 
         return self.history
 
