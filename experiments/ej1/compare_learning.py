@@ -110,6 +110,39 @@ def saturation_analysis() -> tuple[float, float]:
     return pct_i, pct_f
 
 
+def weight_analysis() -> dict[str, float]:
+    """Return mean absolute learned weights per feature across seeds for sigmoid_mse.
+
+    Weights are scale-comparable because inputs are z-scored (std=1).
+    """
+    from experiments.ej1.data_pipeline import prepare_data
+    feature_names = prepare_data().feature_names
+    weight_matrix = []
+    for seed in SEEDS:
+        run_dir = RESULTS_BASE / f"ej1_nonlinear_sigmoid_mse__seed{seed}__allsamples"
+        with np.load(run_dir / "weights.npz") as npz:
+            w = npz["w"]  # [bias, w1, w2, ...]
+        weight_matrix.append(w[1:])
+    weight_matrix = np.array(weight_matrix)
+    mean_abs = np.abs(weight_matrix).mean(axis=0)
+    importance = dict(zip(feature_names, mean_abs.tolist()))
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(9, 4))
+    sorted_items = sorted(importance.items(), key=lambda x: -x[1])
+    names = [k for k, _ in sorted_items]
+    vals = [v for _, v in sorted_items]
+    ax.barh(range(len(names)), vals, color="steelblue")
+    ax.set_yticks(range(len(names)))
+    ax.set_yticklabels(names, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlabel("mean |w| across 5 seeds")
+    ax.set_title("Feature importance (sigmoid_mse, all-samples training)")
+    ax.grid(alpha=0.3, axis="x")
+    save_fig(fig, OUT_DIR / "feature_importance.png")
+    return importance
+
+
 def build_decision_md(table_str: str, results: dict, pct_i: float, pct_f: float) -> str:
     linear_mse_val = results["ej1_linear"]["mse_val_mean"]
     best_nonlin = min(
@@ -131,40 +164,50 @@ def build_decision_md(table_str: str, results: dict, pct_i: float, pct_f: float)
 
 ## Answers to enunciado questions
 
+> Trained on the **full dataset** (all 7500 samples) per enunciado clarification.
+> All MSE figures below are computed on that same dataset (not a held-out split).
+
 ### (a) Underfitting
-The linear perceptron (identity activation) achieves MSE_val ≈ {linear_mse_val:.5f}, while
-the best non-linear variant ({winner_name}) achieves MSE_val ≈ {winner_mse:.5f}.
-Gap = {gap:.5f} (~{gap/winner_mse*100:.1f}% relative).
+The linear perceptron (identity activation) achieves MSE ≈ {linear_mse_val:.5f}, while
+the best non-linear variant ({winner_name}) achieves MSE ≈ {winner_mse:.5f}.
+Gap = {gap:.5f} (~{gap/winner_mse*100:.0f}% relative — non-linear is more than 2× better).
 
 **Yes, the linear perceptron underfits.** The target `big_model_fraud_probability` has
 non-linear structure that a linear model w·x + b cannot capture. The constant gap
-across all 5 seeds confirms it is not a fluke of initialisation.
+across all 5 seeds (std ≪ gap) confirms it is not a fluke of initialisation.
 
-### (b) Saturation of the sigmoid
-Inspecting the net distribution (w·x + b) of the sigmoid model (seed 42):
-- **Initial**: {pct_i:.1f}% of training samples have |net| > 4 (sigmoid derivative < 0.018).
-- **Final**: {pct_f:.1f}% of training samples have |net| > 4.
+### (b) Saturation of the capacities (two readings)
 
-{"**Saturation risk is LOW**: the sigmoid model operates well away from saturation after training." if pct_f < 10
- else "**Saturation is present**: a significant fraction of nets saturate. Gradients are near zero for those samples."}
+**(i) Activation saturation (sigmoid)**: distribution of net values w·x + b for the
+sigmoid model (seed 42):
+- **Initial**: {pct_i:.1f}% of samples have |net| > 4 (sigmoid derivative < 0.018 there).
+- **Final**: {pct_f:.1f}% of samples have |net| > 4.
 
-**Capacity saturation (model ceiling)**: both sigmoid variants plateau at MSE_val ≈ {winner_mse:.5f}
-and do not improve further. This reflects the fundamental capacity limit of a single-neuron
-perceptron — it cannot model complex non-linear interactions between features. This is *not*
-a training failure; the model has converged, but the representational capacity is exhausted.
+{"**Activation saturation is NOT a problem**: most net values stay in the linear region of the sigmoid, gradients flow normally throughout training." if pct_f < 10
+ else "**Activation saturation IS present**: a significant fraction of nets saturate; gradients vanish there."}
+
+**(ii) Model capacity saturation (the more interesting reading)**: both sigmoid variants
+plateau at MSE ≈ {winner_mse:.5f} and **do not improve further with more epochs**. This
+plateau is the fundamental capacity ceiling of a single-neuron perceptron: it can only
+represent a sigmoidal function of a linear combination of features, so any non-linear
+feature interactions remain unmodelled. The model has converged; its representational
+capacity is exhausted. (A multi-layer perceptron would close this gap.)
 
 ### (c) Selected variant for generalisation study
 **Selected: `{winner_name}`**
 Config: `{winner_config}`
 
 Justification:
-- Lowest MSE_val among all variants (mean across 5 seeds).
-- Sigmoid output is bounded in (0, 1), matching the target range — sensible inductive bias.
-- No saturation issues observed.
+- Lowest training MSE among all variants (mean across 5 seeds).
+- Sigmoid output is bounded in (0, 1), matching the target range — natural inductive bias.
+- No activation saturation issues observed.
+- MSE and BCE losses give nearly identical results with sigmoid; we keep MSE for direct
+  comparability with the linear baseline.
 
 ## Files produced
-- `loss_curves.png` — val_loss mean ± 1σ per variant across seeds
+- `loss_curves.png` — train loss mean ± 1σ per variant across seeds (all-samples)
 - `saturation_hist.png` — net distribution before/after training for sigmoid_mse
+- `feature_importance.png` — learned |weights| per feature (sigmoid_mse, mean across seeds)
 - `summary_table.md` — this table in standalone form
 """
 
@@ -202,6 +245,12 @@ def main() -> None:
     # Saturation analysis
     pct_i, pct_f = saturation_analysis()
     print(f"\nSaturation (sigmoid_mse seed42): initial={pct_i:.1f}%, final={pct_f:.1f}% |net|>4")
+
+    # Feature importance
+    importance = weight_analysis()
+    print("\nFeature importance (mean |w| across seeds, sigmoid_mse):")
+    for f, v in sorted(importance.items(), key=lambda x: -x[1]):
+        print(f"  {f:35s} {v:.4f}")
 
     # Decision doc
     decision_md = build_decision_md(table_str, results, pct_i, pct_f)

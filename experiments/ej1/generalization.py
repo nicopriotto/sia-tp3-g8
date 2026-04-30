@@ -291,9 +291,11 @@ def build_final_report(
 - **AUC-PR**: area under precision-recall curve; robust to class imbalance.
 - **AUC-ROC**: standard ranking metric.
 
-Oracle upper bound (BigModel scores directly vs flagged_fraud):
+Oracle upper bound (BigModel scores directly vs flagged_fraud, the real ground truth from
+fraud reports per the dataset documentation):
 - AUC-ROC = {oracle_auc_roc:.4f}, AUC-PR = {oracle_auc_pr:.4f}
-  (BigModel perfectly separates flagged_fraud — flagged is derived by thresholding BigModel.)
+  BigModel is essentially perfect against the ground truth — this is the ceiling that
+  TinyModel aims to approximate (knowledge distillation).
 
 ## (b) Data manipulation strategy and best training set
 
