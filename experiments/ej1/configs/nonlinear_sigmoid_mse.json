@@ -1,0 +1,16 @@
+{
+  "name": "ej1_nonlinear_sigmoid_mse",
+  "model_type": "nonlinear",
+  "activation": "sigmoid",
+  "activation_params": {"beta": 1.0},
+  "loss": "mse",
+  "learning_rate": 0.01,
+  "epochs": 500,
+  "batch_size": null,
+  "seed": 42,
+  "log_every": 50,
+  "task_type": "regression",
+  "early_stopping": true,
+  "patience": 30,
+  "min_delta": 1e-5
+}
