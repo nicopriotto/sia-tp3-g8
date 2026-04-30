@@ -126,7 +126,9 @@ def plot_comparison_curves(
     ax.set_xlabel("epoch")
     ax.set_ylabel(key)
     ax.set_title(title)
-    ax.set_yscale("log")
+    all_vals = [v for run in histories.values() for vals in [[r[key] for r in recs if key in r] for recs in run] for v in vals]
+    if all_vals and min(all_vals) > 0:
+        ax.set_yscale("log")
     ax.grid(alpha=0.3, which="both")
     ax.legend()
     save_fig(fig, out_path)

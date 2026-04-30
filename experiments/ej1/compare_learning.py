@@ -34,10 +34,13 @@ OUT_DIR = Path("results/ej1/comparison")
 
 
 def run_missing_trains() -> None:
-    """Train any variant/seed combination not yet present on disk."""
+    """Train any variant/seed combination not yet present on disk.
+
+    Uses --all-samples per enunciado: learning comparison must use the full dataset.
+    """
     for variant in VARIANTS:
         for seed in SEEDS:
-            run_id = f"{variant}__seed{seed}"
+            run_id = f"{variant}__seed{seed}__allsamples"
             run_dir = RESULTS_BASE / run_id
             if not (run_dir / "history.json").exists():
                 print(f"  Training missing: {run_id}")
@@ -45,6 +48,7 @@ def run_missing_trains() -> None:
                     sys.executable, "-m", "experiments.ej1.train",
                     "--config", CONFIGS[variant],
                     "--seed", str(seed),
+                    "--all-samples",
                     "--no-plots",
                 ]
                 subprocess.run(cmd, check=True)
@@ -54,7 +58,7 @@ def load_histories() -> dict[str, list[list[dict]]]:
     histories: dict[str, list[list[dict]]] = {v: [] for v in VARIANTS}
     for variant in VARIANTS:
         for seed in SEEDS:
-            path = RESULTS_BASE / f"{variant}__seed{seed}" / "history.json"
+            path = RESULTS_BASE / f"{variant}__seed{seed}__allsamples" / "history.json"
             with open(path) as f:
                 histories[variant].append(json.load(f))
     return histories
@@ -64,35 +68,35 @@ def load_evaluations() -> dict[str, list[dict]]:
     evals: dict[str, list[dict]] = {v: [] for v in VARIANTS}
     for variant in VARIANTS:
         for seed in SEEDS:
-            path = RESULTS_BASE / f"{variant}__seed{seed}" / "evaluation.json"
+            path = RESULTS_BASE / f"{variant}__seed{seed}__allsamples" / "evaluation.json"
             with open(path) as f:
                 evals[variant].append(json.load(f))
     return evals
 
 
 def summary_table(evals: dict[str, list[dict]]) -> str:
-    header = f"{'variant':<35} {'MSE_train':>12} {'MSE_val':>12} {'MSE_test':>12} {'MAE_val':>12}"
+    header = f"{'variant':<35} {'MSE_all':>23} {'MAE_all':>23}"
     lines = [header, "-" * len(header)]
     results = {}
     for variant, runs in evals.items():
-        mse_train = np.array([r["train"]["mse"] for r in runs])
-        mse_val = np.array([r["val"]["mse"] for r in runs])
-        mse_test = np.array([r["test"]["mse"] for r in runs])
-        mae_val = np.array([r["val"]["mae"] for r in runs])
+        # all-samples runs have key "all" instead of "train"/"val"/"test"
+        key = "all" if "all" in runs[0] else "train"
+        mse_all = np.array([r[key]["mse"] for r in runs])
+        mae_all = np.array([r[key]["mae"] for r in runs])
         results[variant] = {
-            "mse_val_mean": mse_val.mean(), "mse_val_std": mse_val.std(),
-            "mse_test_mean": mse_test.mean(),
+            "mse_val_mean": mse_all.mean(), "mse_val_std": mse_all.std(),
+            "mse_test_mean": mse_all.mean(),
         }
         def fmt(arr): return f"{arr.mean():.5f}±{arr.std():.5f}"
         lines.append(
-            f"{variant:<35} {fmt(mse_train):>23} {fmt(mse_val):>23} {fmt(mse_test):>23} {fmt(mae_val):>23}"
+            f"{variant:<35} {fmt(mse_all):>23} {fmt(mae_all):>23}"
         )
     return "\n".join(lines), results
 
 
 def saturation_analysis() -> tuple[float, float]:
     """Return (pct_saturated_initial, pct_saturated_final) for sigmoid_mse seed42."""
-    run_dir = RESULTS_BASE / "ej1_nonlinear_sigmoid_mse__seed42"
+    run_dir = RESULTS_BASE / "ej1_nonlinear_sigmoid_mse__seed42__allsamples"
     nets_i = np.load(run_dir / "nets_initial.npy")
     nets_f = np.load(run_dir / "nets_final.npy")
     pct_i = float(np.mean(np.abs(nets_i) > 4) * 100)
@@ -175,17 +179,18 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Loss comparison plot
-    val_histories = {
-        v: [[{"epoch": r["epoch"], "val_loss": r["val_loss"]} for r in run if "val_loss" in r]
+    # Loss comparison plot (all-samples runs have no val_loss, use train loss)
+    loss_key = "loss"
+    loss_histories = {
+        v: [[{"epoch": r["epoch"], loss_key: r[loss_key]} for r in run if loss_key in r]
             for run in runs]
         for v, runs in histories.items()
     }
     plot_comparison_curves(
-        val_histories,
+        loss_histories,
         OUT_DIR / "loss_curves.png",
-        key="val_loss",
-        title="Val loss — linear vs sigmoid+MSE vs sigmoid+BCE (5 seeds each)",
+        key=loss_key,
+        title="Train loss (all samples) — linear vs sigmoid+MSE vs sigmoid+BCE (5 seeds each)",
     )
 
     # Summary table

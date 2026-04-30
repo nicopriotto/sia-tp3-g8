@@ -212,8 +212,9 @@ def plot_pred_vs_bigmodel(y_true, preds, out_path: Path) -> None:
 
 
 def _find_threshold_at_min_recall(sweep: list[dict], min_recall: float) -> dict | None:
+    # Highest threshold that still achieves recall >= min_recall (most selective while keeping recall)
     candidates = [r for r in sweep if r["recall"] >= min_recall]
-    return min(candidates, key=lambda x: x["threshold"]) if candidates else None
+    return max(candidates, key=lambda x: x["threshold"]) if candidates else None
 
 
 def _find_threshold_at_min_precision(sweep: list[dict], min_precision: float) -> dict | None:
