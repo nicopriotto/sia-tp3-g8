@@ -12,6 +12,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from sklearn.metrics import (
     roc_auc_score, average_precision_score,
     precision_recall_curve, roc_curve,
@@ -24,7 +25,9 @@ from perceptron.models.factory import build_model
 from perceptron.training.trainer import Trainer
 from perceptron.utils import set_seed
 
-from experiments.ej1.data_pipeline import prepare_data, make_kfold_splits
+from experiments.ej1.data_pipeline import (
+    prepare_data, make_kfold_splits, CSV_PATH, TARGET_COL, FLAG_COL,
+)
 from experiments.ej1.plots import save_fig
 
 
@@ -360,6 +363,12 @@ def main() -> None:
     print(f"=== Generalisation study: {config.name} ===")
     bundle = prepare_data(seed=config.seed)
 
+    # Oracle upper bound: BigModel scores directly vs flagged_fraud (full dataset).
+    df_full = pd.read_csv(CSV_PATH)
+    oracle_auc_roc = float(roc_auc_score(df_full[FLAG_COL], df_full[TARGET_COL]))
+    oracle_auc_pr = float(average_precision_score(df_full[FLAG_COL], df_full[TARGET_COL]))
+    print(f"  Oracle (BigModel vs flagged_fraud): AUC-ROC={oracle_auc_roc:.4f} AUC-PR={oracle_auc_pr:.4f}")
+
     # E.0 Learning curve
     print("\n[E.0] Learning curve...")
     lc_data = learning_curve(config, bundle)
@@ -417,7 +426,8 @@ def main() -> None:
 
     # Final report
     report = build_final_report(
-        config.name, lc_data, fold_results, recommended_threshold, test_metrics, test_sweep
+        config.name, lc_data, fold_results, recommended_threshold, test_metrics, test_sweep,
+        oracle_auc_roc=oracle_auc_roc, oracle_auc_pr=oracle_auc_pr,
     )
     with open(out_dir / "final_report.md", "w") as f:
         f.write(report)
