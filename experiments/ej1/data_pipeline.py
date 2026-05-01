@@ -16,6 +16,7 @@ FLAG_COL = "flagged_fraud"
 
 @dataclass
 class DataBundle:
+    # Z-scored features (use these for direct training).
     X_train: np.ndarray
     y_train: np.ndarray
     y_flag_train: np.ndarray
@@ -27,6 +28,11 @@ class DataBundle:
     y_flag_test: np.ndarray
     feature_names: List[str]
     scaler: StandardScaler
+    # Raw features — for k-fold / learning curve / final retrain that re-fit
+    # a scaler on their own training partition to avoid leakage.
+    X_train_raw: np.ndarray
+    X_val_raw: np.ndarray
+    X_test_raw: np.ndarray
 
 
 def prepare_data(
@@ -60,16 +66,19 @@ def prepare_data(
     )
 
     scaler = StandardScaler().fit(X_train)
-    X_train = scaler.transform(X_train)
-    X_val = scaler.transform(X_val)
-    X_test = scaler.transform(X_test)
+    X_train_s = scaler.transform(X_train)
+    X_val_s = scaler.transform(X_val)
+    X_test_s = scaler.transform(X_test)
 
     return DataBundle(
-        X_train=X_train, y_train=y_train, y_flag_train=yf_train,
-        X_val=X_val, y_val=y_val, y_flag_val=yf_val,
-        X_test=X_test, y_test=y_test, y_flag_test=yf_test,
+        X_train=X_train_s, y_train=y_train, y_flag_train=yf_train,
+        X_val=X_val_s, y_val=y_val, y_flag_val=yf_val,
+        X_test=X_test_s, y_test=y_test, y_flag_test=yf_test,
         feature_names=feature_names,
         scaler=scaler,
+        X_train_raw=X_train,
+        X_val_raw=X_val,
+        X_test_raw=X_test,
     )
 
 

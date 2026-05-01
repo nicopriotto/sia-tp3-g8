@@ -39,7 +39,8 @@ def parse_args() -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 
 def learning_curve(config: ExperimentConfig, bundle, fractions=(0.1, 0.25, 0.5, 0.75, 1.0)) -> list[dict]:
-    X_tv = np.vstack([bundle.X_train, bundle.X_val])
+    # Use raw features — the scaler is re-fit per fraction below.
+    X_tv = np.vstack([bundle.X_train_raw, bundle.X_val_raw])
     y_tv = np.hstack([bundle.y_train, bundle.y_val])
     n_total = len(X_tv)
     # val = last 20% of trainval (fixed, unscaled by fraction)
@@ -81,7 +82,8 @@ def plot_learning_curve(lc_data: list[dict], out_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def run_kfold(config: ExperimentConfig, bundle, n_splits: int = 5) -> list[dict]:
-    X_tv = np.vstack([bundle.X_train, bundle.X_val])
+    # Raw features — make_kfold_splits re-fits StandardScaler per fold to avoid leakage.
+    X_tv = np.vstack([bundle.X_train_raw, bundle.X_val_raw])
     y_tv = np.hstack([bundle.y_train, bundle.y_val])
     yf_tv = np.hstack([bundle.y_flag_train, bundle.y_flag_val])
 
@@ -138,12 +140,13 @@ def run_kfold(config: ExperimentConfig, bundle, n_splits: int = 5) -> list[dict]
 # ---------------------------------------------------------------------------
 
 def train_final_model(config: ExperimentConfig, bundle):
-    X_tv = np.vstack([bundle.X_train, bundle.X_val])
+    # Raw features — final scaler is fit on train+val only, then applied to test.
+    X_tv = np.vstack([bundle.X_train_raw, bundle.X_val_raw])
     y_tv = np.hstack([bundle.y_train, bundle.y_val])
 
     scaler = StandardScaler().fit(X_tv)
     X_tv_s = scaler.transform(X_tv)
-    X_test_s = scaler.transform(bundle.X_test)
+    X_test_s = scaler.transform(bundle.X_test_raw)
 
     m = build_model(config, n_features=X_tv_s.shape[1])
     t = Trainer(m, config)
