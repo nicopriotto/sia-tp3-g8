@@ -31,9 +31,8 @@ def load_model(output_dir: str | Path):
     if "w" in weights:
         n_features = int(weights["w"].shape[0]) - 1
     else:
-        # MLP: infer from first layer weight matrix shape
         first_key = sorted(k for k in weights if k.startswith("W"))[0]
-        n_features = int(weights[first_key].shape[1])
+        n_features = int(weights[first_key].shape[0]) - 1
     model = build_model(config, n_features=n_features)
     model.set_weights(weights)
     return model, config
