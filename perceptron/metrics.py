@@ -187,5 +187,16 @@ def evaluate_predictions(
         pred = np.where(np.asarray(y_pred, dtype=float) >= 0.0, 1.0, -1.0)
         return {"accuracy": accuracy(y_true, pred)}
     if task_type == "multiclass":
-        return {"accuracy": multiclass_accuracy(y_true, y_pred)}
+        y_true_arr = np.asarray(y_true)
+        labels = np.arange(y_true_arr.shape[1]) if y_true_arr.ndim > 1 else None
+        per_class = per_class_precision_recall_f1(y_true, y_pred, labels=labels)
+        precision = [row["precision"] for row in per_class.values()]
+        recall = [row["recall"] for row in per_class.values()]
+        f1 = [row["f1"] for row in per_class.values()]
+        return {
+            "accuracy": multiclass_accuracy(y_true, y_pred),
+            "macro_precision": float(np.mean(precision)) if precision else 0.0,
+            "macro_recall": float(np.mean(recall)) if recall else 0.0,
+            "macro_f1": float(np.mean(f1)) if f1 else 0.0,
+        }
     return {}
