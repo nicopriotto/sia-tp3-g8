@@ -17,9 +17,9 @@ from sklearn.metrics import (
     roc_auc_score, average_precision_score,
     precision_recall_curve, roc_curve,
 )
-from sklearn.preprocessing import StandardScaler
 
 from perceptron.config import ExperimentConfig
+from perceptron.preprocessing import StandardScaler
 from perceptron.metrics import mse, mae, threshold_sweep
 from perceptron.models.factory import build_model
 from perceptron.training.trainer import Trainer

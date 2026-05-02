@@ -7,6 +7,7 @@ from typing import Optional
 import numpy as np
 
 from .history import TrainingHistory
+from .lr_schedules import build_lr_schedule
 from .optimizers import build_optimizer
 from ..config import ExperimentConfig
 from ..metrics import accuracy, evaluate_predictions, mse, multiclass_accuracy
@@ -19,6 +20,12 @@ class Trainer:
         self.config = config
         self.history = TrainingHistory()
         self.optimizer = build_optimizer(config.optimizer, **config.optimizer_params)
+        self.lr_schedule = build_lr_schedule(
+            config.lr_schedule,
+            config.learning_rate,
+            config.epochs,
+            config.lr_schedule_params,
+        )
         if hasattr(self.model, "loss"):
             self.model.loss = config.loss
 
@@ -41,7 +48,8 @@ class Trainer:
         best_weights = None
 
         for epoch in range(1, n_epochs + 1):
-            loss = self.model.train_epoch(X, y, self.config.learning_rate, rng, optimizer=self.optimizer)
+            current_lr = self.lr_schedule(epoch)
+            loss = self.model.train_epoch(X, y, current_lr, rng, optimizer=self.optimizer)
 
             train_pred = self.model.predict(X)
             train_acc = self._safe_accuracy(y, train_pred)
@@ -53,6 +61,7 @@ class Trainer:
                 "loss": loss,
                 "train_loss": loss,
                 "accuracy": train_acc,
+                "lr": current_lr,
                 "elapsed_sec": elapsed,
             }
             record.update(train_metrics)

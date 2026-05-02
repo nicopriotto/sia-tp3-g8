@@ -18,7 +18,7 @@ def build_model(config: ExperimentConfig, n_features: int):
             if config.output_activation
             else None
         )
-        return MLPPerceptron(
+        mlp_kwargs = dict(
             n_features=n_features,
             architecture=config.architecture,
             activation=activation,
@@ -27,6 +27,9 @@ def build_model(config: ExperimentConfig, n_features: int):
             batch_size=config.batch_size,
             loss=config.loss,
         )
+        if config.weight_init is not None:
+            mlp_kwargs["weight_init"] = config.weight_init
+        return MLPPerceptron(**mlp_kwargs)
 
     if config.model_type in {"step", "linear", "nonlinear"}:
         return SimplePerceptron(

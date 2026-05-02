@@ -1,7 +1,7 @@
 """Re-export of plot helpers from ``experiments._common``.
 
-Kept as a thin shim so existing imports like
-``from experiments.ej2.plots import plot_loss_curve`` keep working.
+Kept as a thin shim so ej3 scripts can ``from experiments.ej3.plots import
+plot_loss_curve`` symmetrically with ej2.
 """
 from experiments._common.plots import (  # noqa: F401
     plot_accuracy_curve,

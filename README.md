@@ -49,13 +49,19 @@ resultados (pesos, métricas por época, plots) se vuelcan a `results/<exp>/` fu
 código fuente, lo que mantiene los experimentos reproducibles y separa claramente las
 piezas que generan datos de las que los analizan.
 
-Hoy hay dos sub-paquetes:
+Hoy hay cuatro sub-paquetes:
 
 - **`validation/`** — los cuatro ejercicios de validación opcionales del enunciado
   (AND con escalón, regresión lineal y=x, regresión no lineal y=tanh(x), y XOR con MLP en
   arquitecturas `[2,2,1]` y `[2,3,2,1]`). Sirven como sanity check de la librería.
 - **`ej1/`** — destilación de BigModel a TinyModel para detección de fraude. El plan
   detallado está en [experiments/ej1/README.md](experiments/ej1/README.md).
+- **`ej2/`** — clasificación de dígitos manuscritos con perceptrón multicapa
+  (sweep de arquitectura, learning rate y optimizador sobre `digits.csv`). Plan
+  en [experiments/ej2/README.md](experiments/ej2/README.md).
+- **`ej3/`** — segunda iteración del problema de dígitos: alcanzar accuracy
+  ≥ 98% incorporando el dataset adicional `more_digits.csv`. Plan en
+  [experiments/ej3/README.md](experiments/ej3/README.md).
 
 ### `data/`
 

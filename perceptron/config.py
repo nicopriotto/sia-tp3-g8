@@ -16,6 +16,7 @@ class ExperimentConfig:
     activation: str = "step"
     activation_params: dict = field(default_factory=dict)
     architecture: Optional[list[int]] = None  # used by MLP, e.g. [2, 2, 1]
+    weight_init: Optional[str] = None  # used by MLP: None -> "uniform" (default); also "xavier", "he"
     seed: Optional[int] = None
     batch_size: Optional[int] = None  # None = online (one sample at a time)
     log_every: int = 1
@@ -36,6 +37,8 @@ class ExperimentConfig:
     early_stopping: bool = False
     patience: int = 20
     min_delta: float = 0.0
+    lr_schedule: Optional[str] = None  # None/"none" -> constant lr; also "step", "exponential", "cosine"
+    lr_schedule_params: dict = field(default_factory=dict)
     extra: dict = field(default_factory=dict)
 
     @classmethod

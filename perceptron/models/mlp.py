@@ -4,11 +4,17 @@ Weights include bias in the first row of each matrix.
 """
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from .base import BasePerceptron
 from ..activations import Activation
 from ..training.optimizers import Optimizer
+
+
+_VALID_WEIGHT_INITS = ("uniform", "xavier", "he")
+_DEFAULT_WEIGHT_RANGE = (-0.5, 0.5)
 
 
 class MLPPerceptron(BasePerceptron):
@@ -19,9 +25,10 @@ class MLPPerceptron(BasePerceptron):
         activation: Activation,
         output_activation: Activation | None = None,
         seed: int | None = None,
-        weight_range: tuple[float, float] = (-0.5, 0.5),
+        weight_range: tuple[float, float] | None = None,
         batch_size: int | None = None,
         loss: str = "mse",
+        weight_init: str = "uniform",
     ):
         if not architecture:
             raise ValueError("architecture must not be empty")
@@ -34,17 +41,42 @@ class MLPPerceptron(BasePerceptron):
         if len(layer_sizes) < 2:
             raise ValueError("architecture must define at least input and output size")
 
+        if weight_init not in _VALID_WEIGHT_INITS:
+            raise ValueError(
+                "Unknown weight_init '{}'. Valid options: {}".format(
+                    weight_init, ", ".join(_VALID_WEIGHT_INITS)
+                )
+            )
+
         self.layer_sizes = layer_sizes
         self.activation_hidden = activation
         self.activation_output = output_activation if output_activation is not None else activation
         self.batch_size = batch_size
         self.loss = loss
+        self.weight_init = weight_init
 
         rng = np.random.default_rng(seed)
-        lo, hi = weight_range
         self.weights: list[np.ndarray] = []
-        for in_dim, out_dim in zip(layer_sizes[:-1], layer_sizes[1:]):
-            self.weights.append(rng.uniform(lo, hi, size=(in_dim + 1, out_dim)))
+        if weight_init == "uniform":
+            lo, hi = weight_range if weight_range is not None else _DEFAULT_WEIGHT_RANGE
+            for in_dim, out_dim in zip(layer_sizes[:-1], layer_sizes[1:]):
+                self.weights.append(rng.uniform(lo, hi, size=(in_dim + 1, out_dim)))
+        else:
+            if weight_range is not None:
+                warnings.warn(
+                    "weight_range is ignored when weight_init='{}'.".format(weight_init),
+                    stacklevel=2,
+                )
+            for in_dim, out_dim in zip(layer_sizes[:-1], layer_sizes[1:]):
+                fan_in = in_dim
+                fan_out = out_dim
+                if weight_init == "xavier":
+                    limit = float(np.sqrt(6.0 / (fan_in + fan_out)))
+                else:  # "he"
+                    limit = float(np.sqrt(6.0 / fan_in))
+                w = np.zeros((in_dim + 1, out_dim), dtype=float)
+                w[1:, :] = rng.uniform(-limit, limit, size=(in_dim, out_dim))
+                self.weights.append(w)
 
     @staticmethod
     def _add_bias(a: np.ndarray) -> np.ndarray:

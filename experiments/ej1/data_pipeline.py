@@ -7,7 +7,8 @@ from typing import List
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split, KFold
-from sklearn.preprocessing import StandardScaler
+
+from perceptron.preprocessing import StandardScaler
 
 CSV_PATH = "data/fraud_dataset.csv"
 TARGET_COL = "big_model_fraud_probability"
