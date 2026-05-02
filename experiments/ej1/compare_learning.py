@@ -35,12 +35,10 @@ OUT_DIR = Path("results/ej1/comparison")
 
 def run_missing_trains() -> None:
     """Train any variant/seed combination not yet present on disk.
-
-    Uses --all-samples per enunciado: learning comparison must use the full dataset.
     """
     for variant in VARIANTS:
         for seed in SEEDS:
-            run_id = f"{variant}__seed{seed}__allsamples"
+            run_id = f"{variant}__seed{seed}"
             run_dir = RESULTS_BASE / run_id
             if not (run_dir / "history.json").exists():
                 print(f"  Training missing: {run_id}")
@@ -48,7 +46,6 @@ def run_missing_trains() -> None:
                     sys.executable, "-m", "experiments.ej1.train",
                     "--config", CONFIGS[variant],
                     "--seed", str(seed),
-                    "--all-samples",
                     "--no-plots",
                 ]
                 subprocess.run(cmd, check=True)
@@ -58,7 +55,7 @@ def load_histories() -> dict[str, list[list[dict]]]:
     histories: dict[str, list[list[dict]]] = {v: [] for v in VARIANTS}
     for variant in VARIANTS:
         for seed in SEEDS:
-            path = RESULTS_BASE / f"{variant}__seed{seed}__allsamples" / "history.json"
+            path = RESULTS_BASE / f"{variant}__seed{seed}" / "history.json"
             with open(path) as f:
                 histories[variant].append(json.load(f))
     return histories
@@ -68,35 +65,34 @@ def load_evaluations() -> dict[str, list[dict]]:
     evals: dict[str, list[dict]] = {v: [] for v in VARIANTS}
     for variant in VARIANTS:
         for seed in SEEDS:
-            path = RESULTS_BASE / f"{variant}__seed{seed}__allsamples" / "evaluation.json"
+            path = RESULTS_BASE / f"{variant}__seed{seed}" / "evaluation.json"
             with open(path) as f:
                 evals[variant].append(json.load(f))
     return evals
 
 
 def summary_table(evals: dict[str, list[dict]]) -> str:
-    header = f"{'variant':<35} {'MSE_all':>23} {'MAE_all':>23}"
+    header = f"{'variant':<35} {'MSE_val':>23} {'MAE_val':>23}"
     lines = [header, "-" * len(header)]
     results = {}
     for variant, runs in evals.items():
-        # all-samples runs have key "all" instead of "train"/"val"/"test"
-        key = "all" if "all" in runs[0] else "train"
-        mse_all = np.array([r[key]["mse"] for r in runs])
-        mae_all = np.array([r[key]["mae"] for r in runs])
+        mse_val = np.array([r["val"]["mse"] for r in runs])
+        mae_val = np.array([r["val"]["mae"] for r in runs])
+        mse_test = np.array([r["test"]["mse"] for r in runs])
         results[variant] = {
-            "mse_val_mean": mse_all.mean(), "mse_val_std": mse_all.std(),
-            "mse_test_mean": mse_all.mean(),
+            "mse_val_mean": mse_val.mean(), "mse_val_std": mse_val.std(),
+            "mse_test_mean": mse_test.mean(),
         }
         def fmt(arr): return f"{arr.mean():.5f}±{arr.std():.5f}"
         lines.append(
-            f"{variant:<35} {fmt(mse_all):>23} {fmt(mae_all):>23}"
+            f"{variant:<35} {fmt(mse_val):>23} {fmt(mae_val):>23}"
         )
     return "\n".join(lines), results
 
 
 def saturation_analysis() -> tuple[float, float]:
     """Return (pct_saturated_initial, pct_saturated_final) for sigmoid_mse seed42."""
-    run_dir = RESULTS_BASE / "ej1_nonlinear_sigmoid_mse__seed42__allsamples"
+    run_dir = RESULTS_BASE / "ej1_nonlinear_sigmoid_mse__seed42"
     nets_i = np.load(run_dir / "nets_initial.npy")
     nets_f = np.load(run_dir / "nets_final.npy")
     pct_i = float(np.mean(np.abs(nets_i) > 4) * 100)
@@ -119,7 +115,7 @@ def weight_analysis() -> dict[str, float]:
     feature_names = prepare_data().feature_names
     weight_matrix = []
     for seed in SEEDS:
-        run_dir = RESULTS_BASE / f"ej1_nonlinear_sigmoid_mse__seed{seed}__allsamples"
+        run_dir = RESULTS_BASE / f"ej1_nonlinear_sigmoid_mse__seed{seed}"
         with np.load(run_dir / "weights.npz") as npz:
             w = npz["w"]  # [bias, w1, w2, ...]
         weight_matrix.append(w[1:])
@@ -137,7 +133,7 @@ def weight_analysis() -> dict[str, float]:
     ax.set_yticklabels(names, fontsize=9)
     ax.invert_yaxis()
     ax.set_xlabel("mean |w| across 5 seeds")
-    ax.set_title("Feature importance (sigmoid_mse, all-samples training)")
+    ax.set_title("Feature importance (sigmoid_mse, train/val/test protocol)")
     ax.grid(alpha=0.3, axis="x")
     save_fig(fig, OUT_DIR / "feature_importance.png")
     return importance
@@ -164,8 +160,8 @@ def build_decision_md(table_str: str, results: dict, pct_i: float, pct_f: float)
 
 ## Answers to enunciado questions
 
-> Trained on the **full dataset** (all 7500 samples) per enunciado clarification.
-> All MSE figures below are computed on that same dataset (not a held-out split).
+> Training used only the train split. Model selection is based on validation metrics.
+> Test split is held out and reported only for final generalization numbers.
 
 ### (a) Underfitting
 The linear perceptron (identity activation) achieves MSE ≈ {linear_mse_val:.5f}, while
@@ -198,14 +194,14 @@ capacity is exhausted. (A multi-layer perceptron would close this gap.)
 Config: `{winner_config}`
 
 Justification:
-- Lowest training MSE among all variants (mean across 5 seeds).
+- Lowest validation MSE among all variants (mean across 5 seeds).
 - Sigmoid output is bounded in (0, 1), matching the target range — natural inductive bias.
 - No activation saturation issues observed.
 - MSE and BCE losses give nearly identical results with sigmoid; we keep MSE for direct
   comparability with the linear baseline.
 
 ## Files produced
-- `loss_curves.png` — train loss mean ± 1σ per variant across seeds (all-samples)
+- `loss_curves.png` — validation loss mean ± 1σ per variant across seeds
 - `saturation_hist.png` — net distribution before/after training for sigmoid_mse
 - `feature_importance.png` — learned |weights| per feature (sigmoid_mse, mean across seeds)
 - `summary_table.md` — this table in standalone form
@@ -222,8 +218,8 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Loss comparison plot (all-samples runs have no val_loss, use train loss)
-    loss_key = "loss"
+    # Loss comparison plot on held-out validation split.
+    loss_key = "val_loss"
     loss_histories = {
         v: [[{"epoch": r["epoch"], loss_key: r[loss_key]} for r in run if loss_key in r]
             for run in runs]
@@ -233,7 +229,7 @@ def main() -> None:
         loss_histories,
         OUT_DIR / "loss_curves.png",
         key=loss_key,
-        title="Train loss (all samples) — linear vs sigmoid+MSE vs sigmoid+BCE (5 seeds each)",
+        title="Validation loss — linear vs sigmoid+MSE vs sigmoid+BCE (5 seeds each)",
     )
 
     # Summary table

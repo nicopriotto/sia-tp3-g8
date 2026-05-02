@@ -72,8 +72,10 @@ Reutilizamos la librería `perceptron/` con dos configs JSON:
 | **Lineal** | `identity` | `mse` | baseline, predice cualquier valor real |
 | **No lineal** | `sigmoid` | `mse` o `binary_cross_entropy` | la salida vive en [0,1] como el target |
 
-Entrenamos **con todas las muestras del dataset** (lo aclara el enunciado para esta primera
-comparación), guardando la curva de loss por época.
+Entrenamos con split estricto **train/validation/test**:
+- train para ajuste de pesos,
+- validation para comparar variantes y early stopping,
+- test solo para evaluación final (sin usarlo para entrenar ni seleccionar modelo).
 
 **Salida**: configs en `experiments/ej1/configs/{linear,nonlinear}.json`, scripts
 `train_linear.py` / `train_nonlinear.py` (o uno común parametrizado) que vuelquen
@@ -142,6 +144,6 @@ Resultados van todos a `results/ej1/` (fuera del código, igual que en `validati
 ## Aclaraciones del enunciado a respetar
 
 - ❌ **No usar `flagged_fraud` para entrenar.** Solo para evaluar y elegir umbral.
-- ✅ Para la primera comparación (lineal vs no lineal) **se usan todas las muestras**.
+- ✅ Mantener separación estricta: **test nunca se usa para entrenar**.
 - ⚠️ Los opcionales (ReLU, feature engineering, calibración) quedan **fuera de esta primera
   iteración**.
