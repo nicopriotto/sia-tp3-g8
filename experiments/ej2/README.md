@@ -54,6 +54,8 @@ python3 -m experiments.ej2.run_all --group learning_rate --seeds 42 123 2026
 python3 -m experiments.ej2.run_all --group architecture --seeds 42 123 2026
 python3 -m experiments.ej2.run_all --group optimizer --seeds 42 123 2026
 python3 -m experiments.ej2.compare_experiments --group learning_rate --seeds 42 123 2026
+python3 -m experiments.ej2.compare_experiments --group architecture --seeds 42 123 2026
+python3 -m experiments.ej2.compare_experiments --group optimizer --seeds 42 123 2026
 ```
 
 Resumen y evaluacion final:
@@ -67,9 +69,21 @@ python3 -m experiments.ej2.evaluate_final --run-dir results/ej2/training/<run_id
 
 La serie minima del Ejercicio 2 estudia:
 
-- `learning_rate`: `0.0001`, `0.001`, `0.01`, `0.1`, `1.0`, `3.0`, manteniendo arquitectura `[784, 64, 10]` y optimizador `sgd`.
-- `architecture`: `[784, 32, 10]`, `[784, 64, 10]`, `[784, 128, 10]`, `[784, 64, 32, 10]`, manteniendo `learning_rate=0.05` y `sgd`.
-- `optimizer`: `sgd@0.05`, `momentum@0.05`, `adam@0.001`, manteniendo arquitectura `[784, 128, 10]`.
+- `learning_rate`: varia solo `learning_rate` en `{0.0001, 0.001, 0.01, 0.1, 1.0, 3.0}`.
+- `optimizer`: varia solo `optimizer` en `{sgd, momentum(0.9), adam}`.
+- `architecture`: varia solo `architecture` en `{[784, 32, 10], [784, 64, 10], [784, 128, 10], [784, 64, 32, 10]}`.
+
+Tabla lista para slides:
+
+| Sweep | Que varia | Parametros fijos |
+|---|---|---|
+| Learning Rate | `lr ∈ {0.0001, 0.001, 0.01, 0.1, 1.0, 3.0}` | `arch=[784,64,10]`, `optimizer=sgd`, `batch=32`, `epochs=30`, `act=tanh`, `out=softmax`, `loss=CCE`, `sin lr_schedule`, `seeds={42,123,2026}` |
+| Optimizer | `optimizer ∈ {sgd, momentum(0.9), adam}` | `arch=[784,64,10]`, `lr=0.05`, `batch=32`, `epochs=30`, `act=tanh`, `out=softmax`, `loss=CCE`, `sin lr_schedule`, `seeds={42,123,2026}` |
+| Architecture | `arch ∈ {[784,32,10], [784,64,10], [784,128,10], [784,64,32,10]}` | `optimizer=sgd`, `lr=0.05`, `batch=32`, `epochs=30`, `act=tanh`, `out=softmax`, `loss=CCE`, `sin lr_schedule`, `seeds={42,123,2026}` |
+
+Nota para la slide:
+
+- Banda sombreada = `±EE` (error estandar sobre 3 seeds, equivalente a `SEM`), no `±1σ`.
 
 Cada comparacion genera:
 
@@ -85,6 +99,29 @@ Los graficos comparativos arrancan en `epoch=0`, antes de aplicar actualizacione
 pesos. Usan media entre seeds y banda de error estandar. El reporte explica
 como evaluar el sistema, que variantes se probaron y cual fue la mejor alternativa por
 `val_macro_f1`.
+
+Para regenerar los barridos comparativos alineados:
+
+```bash
+# Regenerar corridas del sweep de optimizer
+python3 -m experiments.ej2.run_all --group optimizer --seeds 42 123 2026 --force
+
+# Regenerar graficos/resumenes de optimizer
+python3 -m experiments.ej2.compare_experiments --group optimizer --seeds 42 123 2026
+
+# Regenerar corridas del sweep de architecture
+python3 -m experiments.ej2.run_all --group architecture --seeds 42 123 2026 --force
+
+# Regenerar graficos/resumenes de architecture
+python3 -m experiments.ej2.compare_experiments --group architecture --seeds 42 123 2026
+```
+
+Opcional, para rehacer todo el bloque comparativo:
+
+```bash
+python3 -m experiments.ej2.run_all --group all --seeds 42 123 2026 --force
+python3 -m experiments.ej2.compare_experiments --group all --seeds 42 123 2026
+```
 
 ## Learning rate fijo
 

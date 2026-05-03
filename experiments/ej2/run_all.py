@@ -37,9 +37,9 @@ GROUP_CONFIGS = {
         "arch_64_32_tanh_sgd.json",
     ],
     "optimizer": [
-        "opt_sgd_tanh.json",
-        "opt_momentum_tanh.json",
-        "opt_adam_tanh_lr_0_001.json",
+        "opt_sgd_tanh_lr_0_05_arch_64.json",
+        "opt_momentum_tanh_lr_0_05_arch_64.json",
+        "opt_adam_tanh_lr_0_05_arch_64.json",
     ],
 }
 

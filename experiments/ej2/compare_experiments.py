@@ -43,9 +43,9 @@ GROUP_CONFIGS = {
         "arch_64_32_tanh_sgd.json",
     ],
     "optimizer": [
-        "opt_sgd_tanh.json",
-        "opt_momentum_tanh.json",
-        "opt_adam_tanh_lr_0_001.json",
+        "opt_sgd_tanh_lr_0_05_arch_64.json",
+        "opt_momentum_tanh_lr_0_05_arch_64.json",
+        "opt_adam_tanh_lr_0_05_arch_64.json",
     ],
 }
 
@@ -132,8 +132,9 @@ def variant_label(group: str, cfg: dict[str, Any]) -> str:
         return "arch=" + "-".join(str(v) for v in cfg["architecture"])
     if group == "optimizer":
         if cfg["optimizer"] == "momentum":
-            return f"momentum={cfg.get('optimizer_params', {}).get('momentum', 0.9)}"
-        return f"{cfg['optimizer']}@lr={cfg['learning_rate']}"
+            momentum = cfg.get("optimizer_params", {}).get("momentum", 0.9)
+            return f"momentum({momentum})"
+        return str(cfg["optimizer"])
     return cfg["name"]
 
 
@@ -237,21 +238,124 @@ def plot_metric_pair(
         for record in run["history"]
     )
     epochs = np.arange(0, max_epoch + 1)
-    fig, ax = plt.subplots(figsize=(9.5, 5.5))
-
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    plotted_series: list[dict[str, Any]] = []
     for idx, (variant, runs) in enumerate(by_variant.items()):
         color = colors[idx % len(colors)]
         train_mean, train_error = _mean_error(runs, train_key, max_epoch)
         val_mean, val_error = _mean_error(runs, val_key, max_epoch)
         if not np.all(np.isnan(train_mean)):
-            ax.plot(epochs, train_mean, linestyle="--", color=color, alpha=0.65, label=f"{variant} train")
-            ax.fill_between(epochs, train_mean - train_error, train_mean + train_error, color=color, alpha=0.08)
+            train_lower = train_mean - train_error
+            train_upper = train_mean + train_error
+            plotted_series.append(
+                {
+                    "label": f"{variant} train",
+                    "mean": train_mean,
+                    "lower": train_lower,
+                    "upper": train_upper,
+                    "color": color,
+                    "linestyle": "--",
+                    "linewidth": 1.5,
+                    "alpha": 0.7,
+                    "band_alpha": 0.12,
+                    "bound_alpha": 0.35,
+                }
+            )
         if not np.all(np.isnan(val_mean)):
-            ax.plot(epochs, val_mean, color=color, label=f"{variant} val")
-            ax.fill_between(epochs, val_mean - val_error, val_mean + val_error, color=color, alpha=0.16)
+            val_lower = val_mean - val_error
+            val_upper = val_mean + val_error
+            plotted_series.append(
+                {
+                    "label": f"{variant} val",
+                    "mean": val_mean,
+                    "lower": val_lower,
+                    "upper": val_upper,
+                    "color": color,
+                    "linestyle": "-",
+                    "linewidth": 2.0,
+                    "alpha": 1.0,
+                    "band_alpha": 0.18,
+                    "bound_alpha": 0.45,
+                }
+            )
 
-    ax.set_xlabel("Epoch")
+    def _draw_series(target_ax: plt.Axes, *, zoom: bool = False) -> None:
+        for series in plotted_series:
+            band_alpha = min(0.32, series["band_alpha"] * 1.45) if zoom else series["band_alpha"]
+            bound_alpha = min(0.65, series["bound_alpha"] * 1.35) if zoom else series["bound_alpha"]
+            target_ax.plot(
+                epochs,
+                series["mean"],
+                linestyle=series["linestyle"],
+                linewidth=series["linewidth"],
+                color=series["color"],
+                alpha=series["alpha"],
+                label=series["label"],
+            )
+            target_ax.fill_between(
+                epochs,
+                series["lower"],
+                series["upper"],
+                color=series["color"],
+                alpha=band_alpha,
+            )
+            target_ax.plot(
+                epochs,
+                series["lower"],
+                linestyle=":",
+                linewidth=0.9,
+                color=series["color"],
+                alpha=bound_alpha,
+            )
+            target_ax.plot(
+                epochs,
+                series["upper"],
+                linestyle=":",
+                linewidth=0.9,
+                color=series["color"],
+                alpha=bound_alpha,
+            )
+
+    zoom_limits: tuple[float, float] | None = None
+    if ylim is not None and len(epochs) > 2 and plotted_series:
+        mask = epochs >= 1
+        finite_post: list[np.ndarray] = []
+        for series in plotted_series:
+            for bounds in (series["lower"], series["upper"]):
+                valid = bounds[mask]
+                valid = valid[np.isfinite(valid)]
+                if valid.size:
+                    finite_post.append(valid)
+        if finite_post:
+            stacked_post = np.concatenate(finite_post)
+            full_min, full_max = ylim
+            total_span = full_max - full_min
+            post_min = float(np.min(stacked_post))
+            post_max = float(np.max(stacked_post))
+            post_span = post_max - post_min
+            if total_span > 0.0 and 0.0 < post_span < 0.25 * total_span:
+                pad = max(post_span * 0.2, total_span * 0.015)
+                lower = max(full_min, post_min - pad)
+                upper = min(full_max, post_max + pad)
+                if upper - lower < total_span * 0.04:
+                    center = 0.5 * (post_min + post_max)
+                    half_window = max(total_span * 0.02, post_span * 0.75, 0.01)
+                    lower = max(full_min, center - half_window)
+                    upper = min(full_max, center + half_window)
+                zoom_limits = (lower, upper)
+
+    if zoom_limits is not None:
+        fig, (ax, ax_zoom) = plt.subplots(
+            2,
+            1,
+            figsize=(10.0, 8.2),
+            gridspec_kw={"height_ratios": [2.0, 1.25], "hspace": 0.24},
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(9.5, 5.5))
+        ax_zoom = None
+
+    _draw_series(ax, zoom=False)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.set_xlim(left=0)
@@ -270,6 +374,20 @@ def plot_metric_pair(
             ha="center",
             va="center",
         )
+    if ax_zoom is None:
+        ax.set_xlabel("Epoch")
+    else:
+        ax.set_xlabel("")
+
+    if ax_zoom is not None and zoom_limits is not None:
+        _draw_series(ax_zoom, zoom=True)
+        ax_zoom.set_xlim(1, max_epoch)
+        ax_zoom.set_ylim(*zoom_limits)
+        ax_zoom.set_title("Zoom de diferencias y bandas ±EE", fontsize=10, pad=10)
+        ax_zoom.set_xlabel("Epoch")
+        ax_zoom.set_ylabel(ylabel)
+        ax_zoom.grid(alpha=0.25)
+
     save_fig(fig, output_path)
 
 
@@ -334,13 +452,46 @@ def plot_final_metrics(aggregate: dict[str, dict[str, float | int | None]], outp
     for ax, (mean_key, std_key, title, ylim) in zip(axes, specs):
         means = [aggregate[v].get(mean_key) or 0.0 for v in variants]
         stds = [aggregate[v].get(std_key) or 0.0 for v in variants]
-        ax.bar(x, means, yerr=stds, capsize=4, color="#4C78A8")
+        bars = ax.bar(x, means, yerr=stds, capsize=4, color="#4C78A8")
         ax.set_xticks(x)
         ax.set_xticklabels(variants, rotation=25, ha="right")
         ax.set_title(title)
         ax.grid(axis="y", alpha=0.25)
         if ylim is not None:
-            ax.set_ylim(*ylim)
+            full_min, full_max = ylim
+            total_span = full_max - full_min
+            bounds_min = min(m - s for m, s in zip(means, stds))
+            bounds_max = max(m + s for m, s in zip(means, stds))
+            data_span = bounds_max - bounds_min
+            if total_span > 0.0 and 0.0 < data_span < 0.3 * total_span:
+                pad = max(data_span * 0.28, total_span * 0.015)
+                lower = max(full_min, bounds_min - pad)
+                upper = min(full_max, bounds_max + pad)
+                if upper - lower < total_span * 0.05:
+                    center = 0.5 * (bounds_min + bounds_max)
+                    half_window = max(total_span * 0.025, data_span * 0.9, 0.01)
+                    lower = max(full_min, center - half_window)
+                    upper = min(full_max, center + half_window)
+                ax.set_ylim(lower, upper)
+            else:
+                ax.set_ylim(*ylim)
+        else:
+            bounds_min = min(m - s for m, s in zip(means, stds))
+            bounds_max = max(m + s for m, s in zip(means, stds))
+            pad = max((bounds_max - bounds_min) * 0.2, 0.01)
+            ax.set_ylim(bounds_min - pad, bounds_max + pad)
+
+        y_min, y_max = ax.get_ylim()
+        text_offset = (y_max - y_min) * 0.02
+        for bar, mean, err in zip(bars, means, stds):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                mean + err + text_offset,
+                f"{mean:.3f}\n±{err:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=7,
+            )
 
     fig.suptitle("Final validation metrics by variant")
     save_fig(fig, output_path)
@@ -422,6 +573,7 @@ def write_report(
         "Generado por `python3 -m experiments.ej2.compare_experiments`.",
         "Solo usa resultados de train/validation; no carga `data/digits_test.csv`.",
         "Todos los learning rates son constantes durante las epocas.",
+        "Banda sombreada en curvas = ±EE (SEM) entre corridas; no ±1σ.",
         "",
         "## Como evaluar el sistema",
         "",
