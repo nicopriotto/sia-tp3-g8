@@ -1,13 +1,19 @@
 {
-  "name": "ablation_data_only",
+  "name": "grid_a32_mom_lr0_1",
   "model_type": "mlp",
-  "architecture": [784, 128, 10],
+  "architecture": [
+    784,
+    32,
+    10
+  ],
   "activation": "tanh",
   "output_activation": "softmax",
   "loss": "categorical_cross_entropy",
   "task_type": "multiclass",
   "optimizer": "momentum",
-  "optimizer_params": {"momentum": 0.9},
+  "optimizer_params": {
+    "momentum": 0.9
+  },
   "learning_rate": 0.1,
   "epochs": 30,
   "batch_size": 32,
@@ -16,10 +22,7 @@
   "early_stopping": false,
   "patience": 20,
   "min_delta": 0.0,
-  "log_every": 1,
+  "log_every": 10,
   "train_data": "data/digits.csv",
-  "test_data": "data/digits_test.csv",
-  "extra": {
-    "data_strategy": "combined"
-  }
+  "test_data": "data/digits_test.csv"
 }

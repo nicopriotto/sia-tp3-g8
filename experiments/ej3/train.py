@@ -61,16 +61,20 @@ def main() -> None:
     out_dir = Path("results/ej3/training") / run_id
     val_ratio = config.validation_ratio if config.validation_ratio is not None else 0.2
     strategy = config.extra.get("data_strategy", "combined")
+    noise_std = float(config.extra.get("noise_std", 0.0))
 
     set_seed(config.seed)
     print(f"=== {config.name} | seed={config.seed} | run_id={run_id} ===")
     print(f"Data strategy: {strategy}")
     print(f"Validation ratio: {val_ratio}")
+    if noise_std > 0:
+        print(f"Augmentation: Gaussian noise σ={noise_std} on X_train (val unchanged)")
 
     bundle = prepare_train_val_ej3(
         strategy=strategy,
         val_ratio=val_ratio,
         seed=config.seed or 42,
+        noise_std=noise_std,
     )
     model = build_model(config, n_features=bundle.X_train.shape[1])
     trainer = Trainer(model, config)

@@ -115,6 +115,7 @@ def prepare_train_val_ej3(
     strategy: str = "combined",
     val_ratio: float = 0.2,
     seed: int = 42,
+    noise_std: float = 0.0,
 ) -> DigitsBundle:
     """Build a train/validation :class:`DigitsBundle` for ej3.
 
@@ -127,7 +128,15 @@ def prepare_train_val_ej3(
     val_ratio
         Fraction of samples reserved for validation. Must be in ``(0, 1)``.
     seed
-        Random seed for the stratified split.
+        Random seed for the stratified split (and for noise generation if
+        ``noise_std > 0``).
+    noise_std
+        Standard deviation of Gaussian noise added to ``X_train`` as a data
+        augmentation step. The noise is generated once with the same ``seed``
+        used for the split (offset deterministically) and clipped to
+        ``[0, 1]`` to keep pixels valid. ``X_val`` is **never** augmented.
+        Set to ``0.0`` (default) to disable augmentation — equivalent to the
+        previous behaviour.
 
     Returns
     -------
@@ -140,7 +149,7 @@ def prepare_train_val_ej3(
     ------
     ValueError
         If ``strategy`` is not in :data:`VALID_STRATEGIES`, or if
-        ``val_ratio`` is outside ``(0, 1)``.
+        ``val_ratio`` is outside ``(0, 1)``, or if ``noise_std`` is negative.
     """
     if strategy not in VALID_STRATEGIES:
         raise ValueError(
@@ -148,6 +157,8 @@ def prepare_train_val_ej3(
         )
     if not 0.0 < val_ratio < 1.0:
         raise ValueError(f"val_ratio must be between 0 and 1, got {val_ratio!r}.")
+    if noise_std < 0.0:
+        raise ValueError(f"noise_std must be >= 0, got {noise_std!r}.")
 
     if strategy == "only_more":
         sources: list[str | Path] = [MORE_DIGITS_CSV]
@@ -159,8 +170,18 @@ def prepare_train_val_ej3(
         X, labels, val_ratio, seed
     )
 
+    X_train = X_train.astype(float, copy=False)
+
+    # Gaussian-noise data augmentation (train only; val stays clean).
+    if noise_std > 0.0:
+        # Use a derived seed so the noise is reproducible but does not
+        # collide with the seed used for the split / weight init.
+        rng = np.random.default_rng(seed + 1_000_003)
+        noise = rng.normal(loc=0.0, scale=noise_std, size=X_train.shape)
+        X_train = np.clip(X_train + noise, 0.0, 1.0)
+
     return DigitsBundle(
-        X_train=X_train.astype(float, copy=False),
+        X_train=X_train,
         y_train=to_one_hot(labels_train, n_classes=len(CLASS_LABELS)),
         labels_train=labels_train.astype(int, copy=False),
         X_val=X_val.astype(float, copy=False),
