@@ -31,6 +31,28 @@ def run_id_from(config: ExperimentConfig) -> str:
     return f"{config.name}__seed{config.seed}"
 
 
+def initial_history_record(model, bundle, learning_rate: float) -> dict:
+    """Measure the untrained model so comparison curves start at epoch 0."""
+    train_eval = evaluate_multiclass(bundle.y_train, model.predict(bundle.X_train), labels=CLASS_LABELS)
+    val_eval = evaluate_multiclass(bundle.y_val, model.predict(bundle.X_val), labels=CLASS_LABELS)
+    return {
+        "epoch": 0,
+        "loss": train_eval["loss"],
+        "train_loss": train_eval["loss"],
+        "accuracy": train_eval["accuracy"],
+        "macro_precision": train_eval["macro_precision"],
+        "macro_recall": train_eval["macro_recall"],
+        "macro_f1": train_eval["macro_f1"],
+        "lr": learning_rate,
+        "elapsed_sec": 0.0,
+        "val_loss": val_eval["loss"],
+        "val_accuracy": val_eval["accuracy"],
+        "val_macro_precision": val_eval["macro_precision"],
+        "val_macro_recall": val_eval["macro_recall"],
+        "val_macro_f1": val_eval["macro_f1"],
+    }
+
+
 def main() -> None:
     args = parse_args()
     config = ExperimentConfig.from_json(args.config)
@@ -49,6 +71,7 @@ def main() -> None:
     bundle = prepare_train_val(config.train_data, val_ratio=val_ratio, seed=config.seed or 42)
     model = build_model(config, n_features=bundle.X_train.shape[1])
     trainer = Trainer(model, config)
+    epoch_zero = initial_history_record(model, bundle, config.learning_rate)
     history = trainer.fit(
         bundle.X_train,
         bundle.y_train,
@@ -57,6 +80,7 @@ def main() -> None:
         stop_on_perfect=False,
         restore_best_weights=config.early_stopping,
     )
+    history.records.insert(0, epoch_zero)
 
     evaluation = {
         "run_id": run_id,

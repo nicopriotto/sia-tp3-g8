@@ -1,5 +1,5 @@
 {
-  "name": "lr_0_05_tanh_sgd",
+  "name": "lr_1_0_tanh_sgd",
   "model_type": "mlp",
   "architecture": [784, 64, 10],
   "activation": "tanh",
@@ -7,7 +7,7 @@
   "loss": "categorical_cross_entropy",
   "task_type": "multiclass",
   "optimizer": "sgd",
-  "learning_rate": 0.05,
+  "learning_rate": 1.0,
   "epochs": 30,
   "batch_size": 32,
   "seed": 42,
