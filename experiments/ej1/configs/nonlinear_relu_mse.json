@@ -1,7 +1,8 @@
 {
-  "name": "ej1_linear",
-  "model_type": "linear",
-  "activation": "identity",
+  "name": "ej1_nonlinear_relu_mse",
+  "model_type": "nonlinear",
+  "activation": "relu",
+  "activation_params": {},
   "loss": "mse",
   "learning_rate": 0.01,
   "epochs": 500,

@@ -44,16 +44,20 @@ def plot_feature_histograms(df: pd.DataFrame, feature_cols: list[str]) -> None:
     n = len(feature_cols)
     ncols = 3
     nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(14, 3 * nrows))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(14, 4 * nrows))
     axes = axes.flatten()
     for i, col in enumerate(feature_cols):
-        axes[i].hist(df[col], bins=40, edgecolor="none", alpha=0.8)
-        axes[i].set_title(col, fontsize=9)
-        axes[i].set_xlabel("value")
-        axes[i].set_ylabel("count")
+        ax = axes[i]
+        ax.hist(df[col], bins=40, edgecolor="none", alpha=0.8)
+        ax.set_title(col, fontsize=16)
+        ax.set_xlabel("value", fontsize=14)
+        ax.set_ylabel("count", fontsize=14)
+        ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+        ax.tick_params(axis="x", labelsize=13, rotation=30)
+        ax.tick_params(axis="y", labelsize=13)
     for j in range(i + 1, len(axes)):
         axes[j].set_visible(False)
-    fig.suptitle("Feature distributions", fontsize=11)
+    fig.suptitle("Feature distributions", fontsize=18, y=1.01)
     fig.tight_layout()
     _save(fig, "feature_histograms.png")
 

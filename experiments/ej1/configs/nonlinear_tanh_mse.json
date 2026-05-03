@@ -1,7 +1,8 @@
 {
-  "name": "ej1_linear",
-  "model_type": "linear",
-  "activation": "identity",
+  "name": "ej1_nonlinear_tanh_mse",
+  "model_type": "nonlinear",
+  "activation": "tanh",
+  "activation_params": {"beta": 1.0},
   "loss": "mse",
   "learning_rate": 0.01,
   "epochs": 500,
