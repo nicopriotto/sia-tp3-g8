@@ -1,20 +1,19 @@
 {
   "name": "ej2_config_base",
   "model_type": "mlp",
-  "architecture": [784, 64, 10],
-  "activation": "tanh",
+  "architecture": [784, 128, 10],
+  "activation": "relu",
   "output_activation": "softmax",
   "loss": "categorical_cross_entropy",
-  "optimizer": "sgd",
-  "optimizer_params": {},
-  "learning_rate": 0.01,
+  "optimizer": "adam",
+  "optimizer_params": {"beta1": 0.9, "beta2": 0.999, "epsilon": 1e-8},
+  "learning_rate": 0.001,
   "epochs": 50,
   "batch_size": 32,
-  "weight_init": "uniform",
+  "weight_init": "he",
   "task_type": "multiclass",
   "validation_ratio": 0.2,
   "early_stopping": false,
   "train_data": "data/digits.csv",
   "test_data": "data/digits_test.csv"
 }
-
