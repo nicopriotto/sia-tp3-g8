@@ -28,7 +28,7 @@ FULL_TRAIN_BATCH_SIZE = "__FULL_TRAIN_BATCH_SIZE__"
 
 ALWAYS_ALLOWED_CHANGES = {"name", "seed"}
 REQUIRED_RUN_FILES = ("config.json", "history.json", "evaluation.json")
-REQUIRED_GROUP_FILES = (
+BASE_REQUIRED_GROUP_FILES = (
     "summary.csv",
     "aggregate_summary.csv",
     "macro_f1_by_epoch.png",
@@ -231,13 +231,19 @@ def run_sweep(
     write_aggregate_csv(spec.name, aggregate, output_dir / "aggregate_summary.csv")
     epoch_stats = aggregate_val_macro_f1_by_epoch(rows)
 
-    from .plotting import plot_macro_f1_by_epoch
+    from .plotting import plot_macro_f1_by_epoch, plot_macro_f1_by_epoch_zoom
 
     plot_macro_f1_by_epoch(
         epoch_stats,
         output_dir / "macro_f1_by_epoch.png",
         title=f"EJ2 {spec.name}: validation macro F1 by epoch",
     )
+    if spec.name == "learning_rate":
+        plot_macro_f1_by_epoch_zoom(
+            epoch_stats,
+            output_dir / "macro_f1_by_epoch_zoom.png",
+            title=f"EJ2 {spec.name}: validation macro F1 by epoch (zoom)",
+        )
     write_report(spec, rows, aggregate, output_dir / "report.md")
 
     validation_missing = validate_sweep_outputs(spec, seeds)
@@ -540,6 +546,19 @@ def write_report(
             )
         )
 
+    generated_files = [
+        "- `summary.csv`",
+        "- `aggregate_summary.csv`",
+        "- `macro_f1_by_epoch.png`",
+    ]
+    if spec.name == "learning_rate":
+        lines.insert(
+            6,
+            "La variante `macro_f1_by_epoch_zoom.png` muestra el tramo fijo `epoch 200..300` y `val_macro_f1 0.75..0.90` para resaltar diferencias finas.",
+        )
+        generated_files.append("- `macro_f1_by_epoch_zoom.png`")
+    generated_files.append("- `report.md`")
+
     lines.extend(
         [
             "",
@@ -550,10 +569,7 @@ def write_report(
             "",
             "## Archivos generados",
             "",
-            "- `summary.csv`",
-            "- `aggregate_summary.csv`",
-            "- `macro_f1_by_epoch.png`",
-            "- `report.md`",
+            *generated_files,
             "",
         ]
     )
@@ -587,7 +603,7 @@ def write_dry_run_outputs(
 def validate_sweep_outputs(spec: SweepSpec, seeds: Sequence[int]) -> list[str]:
     output_dir = RESULTS_ROOT / spec.name
     missing: list[str] = []
-    for filename in REQUIRED_GROUP_FILES:
+    for filename in required_group_files(spec):
         if not (output_dir / filename).exists():
             missing.append(str(output_dir / filename))
 
@@ -600,6 +616,13 @@ def validate_sweep_outputs(spec: SweepSpec, seeds: Sequence[int]) -> list[str]:
     return missing
 
 
+def required_group_files(spec: SweepSpec) -> tuple[str, ...]:
+    files = list(BASE_REQUIRED_GROUP_FILES)
+    if spec.name == "learning_rate":
+        files.insert(3, "macro_f1_by_epoch_zoom.png")
+    return tuple(files)
+
+
 def _csv_value(value: Any) -> Any:
     if isinstance(value, (list, dict)):
         return json.dumps(value)
@@ -608,4 +631,3 @@ def _csv_value(value: Any) -> Any:
 
 def _fmt(value: Any) -> str:
     return f"{float(value):.4f}" if isinstance(value, (int, float)) else "n/a"
-

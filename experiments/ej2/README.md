@@ -95,10 +95,19 @@ Cada comparacion genera:
 - `aggregate_summary.csv`
 - `report.md`
 
+Adicionalmente, el sweep nuevo de `learning_rate` en
+`results/ej2/comparasion/learning_rate/` genera tambien:
+
+- `macro_f1_by_epoch_zoom.png`
+
 Los graficos comparativos arrancan en `epoch=0`, antes de aplicar actualizaciones de
 pesos. Usan media entre seeds y banda de error estandar. El reporte explica
 como evaluar el sistema, que variantes se probaron y cual fue la mejor alternativa por
 `val_macro_f1`.
+
+En `learning_rate`, `macro_f1_by_epoch.png` conserva la vista completa y
+`macro_f1_by_epoch_zoom.png` muestra el tramo fijo `epoch 200..300` con
+`val_macro_f1 0.75..0.90` para resaltar diferencias pequenas entre variantes.
 
 Para regenerar los barridos comparativos alineados:
 

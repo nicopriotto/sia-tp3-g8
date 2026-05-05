@@ -30,7 +30,7 @@ from typing import Sequence
 from .common import SweepSpec, Variant, add_common_args, run_sweep
 
 
-LR_VALUES: list[float] = [0.0001, 0.001, 0.003, 0.01, 0.03, 0.1]
+LR_VALUES: list[float] = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
 OPTIMIZERS: list[tuple[str, dict]] = [
     ("sgd", {}),
@@ -123,7 +123,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         base_config=Path(args.base_config),
     )
     if not result.dry_run:
-        from .plotting import plot_matrix_heatmaps
+        from .plotting import (
+            plot_matrix_curves_grid,
+            plot_matrix_heatmaps,
+            plot_matrix_peak_epoch,
+        )
 
         plot_matrix_heatmaps(
             result.output_dir,
@@ -138,6 +142,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             lr_values=LR_VALUES,
             architectures=ARCHITECTURES,
             metric="best_val_macro_f1",
+        )
+        plot_matrix_peak_epoch(
+            result.output_dir,
+            optimizers=optimizers_to_run,
+            lr_values=LR_VALUES,
+            architectures=ARCHITECTURES,
+        )
+        plot_matrix_curves_grid(
+            result.output_dir,
+            optimizers=optimizers_to_run,
+            lr_values=LR_VALUES,
+            architectures=ARCHITECTURES,
         )
     return 0
 
