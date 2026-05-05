@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from experiments.ej3.augment import make_augment_fn
 from experiments.ej3.data_pipeline import CLASS_LABELS, prepare_train_val_ej3
 from experiments.ej3.evaluation import evaluate_multiclass, save_evaluation
 from experiments.ej3.plots import plot_accuracy_curve, plot_confusion_matrix, plot_loss_curve
@@ -61,21 +62,28 @@ def main() -> None:
     out_dir = Path("results/ej3/training") / run_id
     val_ratio = config.validation_ratio if config.validation_ratio is not None else 0.2
     strategy = config.extra.get("data_strategy", "combined")
-    noise_std = float(config.extra.get("noise_std", 0.0))
+    # Per-epoch augmentation knobs (read from config.extra). When 0/0, the
+    # Trainer runs bit-identically to the no-aug case.
+    aug_noise_std = float(config.extra.get("noise_std", 0.0))
+    aug_shift_max = int(config.extra.get("shift_max", 0))
 
     set_seed(config.seed)
     print(f"=== {config.name} | seed={config.seed} | run_id={run_id} ===")
     print(f"Data strategy: {strategy}")
     print(f"Validation ratio: {val_ratio}")
-    if noise_std > 0:
-        print(f"Augmentation: Gaussian noise σ={noise_std} on X_train (val unchanged)")
+    if aug_noise_std > 0 or aug_shift_max > 0:
+        print(f"Per-epoch augmentation: noise_std={aug_noise_std}, shift_max={aug_shift_max}")
 
+    # NOTE: pre-augmentation in `prepare_train_val_ej3` is bypassed (noise_std=0).
+    # Augmentation is now applied per-epoch via the Trainer, which is the
+    # correct way (otherwise the model memorises a fixed noisy version).
     bundle = prepare_train_val_ej3(
         strategy=strategy,
         val_ratio=val_ratio,
         seed=config.seed or 42,
-        noise_std=noise_std,
+        noise_std=0.0,
     )
+    augment_fn = make_augment_fn(noise_std=aug_noise_std, shift_max=aug_shift_max)
     model = build_model(config, n_features=bundle.X_train.shape[1])
     trainer = Trainer(model, config)
     history = trainer.fit(
@@ -85,6 +93,7 @@ def main() -> None:
         bundle.y_val,
         stop_on_perfect=False,
         restore_best_weights=config.early_stopping,
+        augment_fn=augment_fn,
     )
 
     evaluation = {

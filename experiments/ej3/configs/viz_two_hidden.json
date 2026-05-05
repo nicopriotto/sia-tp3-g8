@@ -1,0 +1,27 @@
+{
+  "name": "viz_two_hidden",
+  "model_type": "mlp",
+  "architecture": [784, 16, 16, 10],
+  "activation": "tanh",
+  "output_activation": "softmax",
+  "loss": "categorical_cross_entropy",
+  "task_type": "multiclass",
+  "optimizer": "adam",
+  "optimizer_params": {"beta1": 0.9, "beta2": 0.999, "epsilon": 1e-8, "weight_decay": 0.0001},
+  "learning_rate": 0.001,
+  "epochs": 80,
+  "batch_size": 64,
+  "seed": 42,
+  "validation_ratio": 0.2,
+  "early_stopping": false,
+  "patience": 20,
+  "min_delta": 0.0,
+  "log_every": 20,
+  "train_data": "data/digits.csv",
+  "test_data": "data/digits_test.csv",
+  "extra": {
+    "data_strategy": "combined",
+    "noise_std": 0.05,
+    "shift_max": 2
+  }
+}

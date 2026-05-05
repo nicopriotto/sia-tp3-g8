@@ -38,7 +38,18 @@ class Trainer:
         stop_on_perfect: bool = True,
         loss_threshold: float | None = None,
         restore_best_weights: bool = False,
+        augment_fn=None,
     ) -> TrainingHistory:
+        """Train the model.
+
+        ``augment_fn``, if provided, is a callable ``f(X, rng) -> X_aug`` that
+        returns a freshly-augmented copy of the training inputs. It is invoked
+        once per epoch BEFORE ``train_epoch``, so each epoch sees a different
+        augmented version. Validation/training metrics are computed against the
+        ORIGINAL (un-augmented) ``X`` so they remain comparable across epochs
+        and across runs. When ``augment_fn`` is None (default), behaviour is
+        bit-identical to the previous Trainer.
+        """
         rng = np.random.default_rng(self.config.seed)
         start = time.time()
         n_epochs = self.config.epochs
@@ -49,8 +60,10 @@ class Trainer:
 
         for epoch in range(1, n_epochs + 1):
             current_lr = self.lr_schedule(epoch)
-            loss = self.model.train_epoch(X, y, current_lr, rng, optimizer=self.optimizer)
+            X_epoch = augment_fn(X, rng) if augment_fn is not None else X
+            loss = self.model.train_epoch(X_epoch, y, current_lr, rng, optimizer=self.optimizer)
 
+            # Metrics are computed against the un-augmented training set.
             train_pred = self.model.predict(X)
             train_acc = self._safe_accuracy(y, train_pred)
             train_metrics = evaluate_predictions(y, train_pred, task_type, threshold=self.config.threshold)
